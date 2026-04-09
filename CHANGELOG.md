@@ -5,6 +5,32 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 ---
 
+## [2.3.0] — 2026-04-10
+
+### Added
+- `_show_yt_info()` — video info panel (title, channel, duration, views) before quality picker
+- `retry_with_backoff()` — exponential backoff (5s→300s), Ctrl+C aware, skips fatal errors
+- `YTLogger` — suppresses noisy yt-dlp warnings, surfaces actionable errors only
+- `_diagnose_error()` + `ERROR_HINTS` — human-readable hints for 15+ error types
+- `_warn_no_ffmpeg()` — rich panel with install instructions
+- `make_progress()` — reusable rich Progress bar factory
+- `yt_hook` + `_progress_ctx` — replaces old `Hook` class
+
+### Changed
+- Quality menu now lists **all** available formats:
+  - 🎬 Combined (video+audio), 📺 Video HD (per resolution), 🎵 Audio Only (up to 4), 🏆/🎙 Auto rows
+- `_yt_quality_menu()` returns `(fmt, is_audio)` tuple
+- `_download_yt()` accepts `is_audio` param, uses `YTLogger`, `yt_hook`, `retry_with_backoff`
+
+### Fixed
+- `importlib.util.find_spec` import — compatible with Python 3.8–3.14
+- Proxy env vars — now checks both `HTTPS_PROXY` (Windows) and `https_proxy` (Linux/Mac)
+- Registry proxy — `_apply_proxy()` was not called after reading from registry
+- Removed duplicate `_has_ffmpeg()` definition
+- `WinError 10061` (proxy unreachable) — offer clear-and-retry instead of crash
+
+---
+
 ## [2.2.0] — 2026-04-09
 
 ### Added
