@@ -73,7 +73,7 @@ LOGO = r"""
  ___) | | | | | | (_| | |  | |_| |_| | |___
 |____/|_| |_| |_|\__,_|_|   \__|____/|_____|
 """
-VERSION = "2.2.0"
+VERSION = "2.2.1"
 
 # ─── Download settings (user-configurable) ───────────────────────────────────
 DL_SETTINGS = {
@@ -209,17 +209,33 @@ def _save_config(data: dict):
     except Exception:
         pass
 
+# ─── ffmpeg check ─────────────────────────────────────────────────────────────
+def _has_ffmpeg():
+    try:
+        subprocess.run(["ffmpeg","-version"], capture_output=True, timeout=5)
+        return True
+    except Exception:
+        return False
+
 # ─── Proxy ────────────────────────────────────────────────────────────────────
 def _get_current_proxy():
-    # 1. env vars set by SmartDL itself
-    env = os.environ.get("HTTPS_PROXY") or os.environ.get("HTTP_PROXY") or ""
+    # 1. env vars — check both uppercase (Windows/set by SmartDL) and lowercase (Linux/Mac system)
+    env = (
+        os.environ.get("HTTPS_PROXY") or
+        os.environ.get("HTTP_PROXY") or
+        os.environ.get("https_proxy") or
+        os.environ.get("http_proxy") or
+        ""
+    )
     if env:
         return env
+
     # 2. saved config from previous session
     cfg_proxy = _load_config().get("proxy", "")
     if cfg_proxy:
         _apply_proxy(cfg_proxy)
         return cfg_proxy
+
     # 3. Windows system proxy (registry)
     try:
         import winreg as _wr
@@ -234,9 +250,12 @@ def _get_current_proxy():
                     server = parts.get("https") or parts.get("http") or server
                 if not server.startswith("http"):
                     server = "http://" + server
+                # Apply so env vars are set for this session and config is persisted
+                _apply_proxy(server)
                 return server
     except Exception:
         pass
+
     return ""
 
 def _apply_proxy(addr):
@@ -365,14 +384,6 @@ def _parse_v2ray_link(link: str) -> str:
     except Exception:
         pass
     return ""
-
-# ─── ffmpeg check ─────────────────────────────────────────────────────────────
-def _has_ffmpeg():
-    try:
-        subprocess.run(["ffmpeg","-version"], capture_output=True, timeout=5)
-        return True
-    except Exception:
-        return False
 
 # ─── Install menu ─────────────────────────────────────────────────────────────
 def _install_menu():
@@ -569,15 +580,6 @@ def _proxy_step():
         if ch == "p":
             _proxy_menu()
 
-
-# ─── ffmpeg check ─────────────────────────────────────────────────────────────
-def _has_ffmpeg():
-    try:
-        subprocess.run(["ffmpeg","-version"], capture_output=True, timeout=5)
-        return True
-    except Exception:
-        return False
-
 # ─── Output folder ────────────────────────────────────────────────────────────
 def _pick_output_folder():
     default = Path.home() / "Downloads" / "SmartDL"
@@ -757,7 +759,7 @@ def _parse_rss(text):
     items = []
     for block in re.findall(r'<item[^>]*>(.*?)</item>', text, re.DOTALL):
         title_m = re.search(r'<title[^>]*><!\[CDATA\[(.+?)\]\]>|<title[^>]*>([^<]+)<', block)
-        enc_m   = re.search(r'<enclosure[^>]+url=["\']([^"\']+)["\'][^>]*/?>|<enclosure[^>]+url=([^\s>]+)', block)
+        enc_m   = re.search(r'<enclosure[^>]+url=["\'"]([^"\']+)["\'"][^>]*/?>|<enclosure[^>]+url=([^\s>]+)', block)
         title   = (title_m.group(1) or title_m.group(2)).strip() if title_m else "Episode"
         url     = (enc_m.group(1) or enc_m.group(2)).strip() if enc_m else None
         if url: items.append((title, url))
@@ -878,7 +880,7 @@ def _download_podcast_url(url, out_folder, fmt_tuple):
             time.sleep(min(attempt * 2, 30))
 
 def _handle_podcast(url, out_folder):
-    print_section("Analyzing podcast link", "\ud83c\udfa4")
+    print_section("Analyzing podcast link", "\U0001f3a4")
     prx = _get_current_proxy()
     try:
         s = requests.Session()
@@ -955,7 +957,7 @@ def main():
         console.print(Rule(style="dim"))
         console.print()
         url = Prompt.ask(
-            "  [bold cyan]\ud83d\udd17 URL[/bold cyan] "
+            "  [bold cyan]\U0001f517 URL[/bold cyan] "
             "[dim](q = quit  \u00b7  p = proxy  \u00b7  s = settings  \u00b7  i = install)[/dim]"
         ).strip()
 
@@ -982,7 +984,7 @@ def main():
 
         try:
             if is_youtube_url(url):
-                print_section("Analyzing YouTube link", "\ud83c\udfa5")
+                print_section("Analyzing YouTube link", "\U0001f3a5")
                 info_dict = _get_yt_formats(url)
                 if not info_dict:
                     error("Could not fetch video info.")
