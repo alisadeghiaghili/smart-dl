@@ -1,12 +1,12 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 # ┌─────────────────────────────────────────────────────────────┐
-# │  ░██████╗███╗░░░███╗░█████╗░██████╗░████████╗██████╗░██╗░░ │
-# │  ██╔════╝████╗░████║██╔══██╗██╔══██╗╚══██╔══╝██╔══██╗██║░░ │
-# │  ╚█████╗░██╔████╔██║███████║██████╔╝░░░██║░░░██║░░██║██║░░ │
-# │  ░╚═══██╗██║╚██╔╝██║██╔══██║██╔══██╗░░░██║░░░██║░░██║██║░░ │
-# │  ██████╔╝██║░╚═╝░██║██║░░██║██║░░██║░░░██║░░░██████╔╝█████╗│
-# │  ╚═════╝░╚═╝░░░░░╚═╝╚═╝░░╚═╝╚═╝░░╚═╝░░░╚═╝░░░╚═════╝░╚════╝│
+# │  ░██████╗███╗░░░███╗░█████╗░██████╗░████████╗██████╗░██╗░░  │
+# │  ██╔════╝████╗░████║██╔══██╗██╔══██╗╚══██╔══╝██╔══██╗██║░░  │
+# │  ╚█████╗░██╔████╔██║███████║██████╔╝░░░██║░░░██║░░██║██║░░  │
+# │  ░╚═══██╗██║╚██╔╝██║██╔══██║██╔══██╗░░░██║░░░██║░░██║██║░░  │
+# │  ██████╔╝██║░╚═╝░██║██║░░██║██║░░██║░░░██║░░░██████╔╝█████╗ │
+# │  ╚═════╝░╚═╝░░░░░╚═╝╚═╝░░╚═╝╚═╝░░╚═╝░░░╚═╝░░░╚═════╝░╚════╝ │
 # ├─────────────────────────────────────────────────────────────┤
 # │  author  ──  Hellch!ef  ·  if u know u know                 │
 # │  built   ──  2026-04-09  ·  Tehran, IR                      │
@@ -20,9 +20,9 @@ from urllib.parse import urlparse
 
 # ─── Bootstrap (pre-rich) ─────────────────────────────────────────────────────
 def ensure_deps():
-    import importlib
+    from importlib.util import find_spec
     deps = {"yt_dlp": "yt-dlp", "requests": "requests", "rich": "rich"}
-    missing = [(mod, pkg) for mod, pkg in deps.items() if not importlib.util.find_spec(mod)]
+    missing = [(mod, pkg) for mod, pkg in deps.items() if find_spec(mod) is None]
     if not missing:
         return
     total = len(missing)
@@ -73,7 +73,7 @@ LOGO = r"""
  ___) | | | | | | (_| | |  | |_| |_| | |___
 |____/|_| |_| |_|\__,_|_|   \__|____/|_____|
 """
-VERSION = "2.2.1"
+VERSION = "2.3.0"
 
 # ─── Download settings (user-configurable) ───────────────────────────────────
 DL_SETTINGS = {
@@ -216,6 +216,126 @@ def _has_ffmpeg():
         return True
     except Exception:
         return False
+
+# ─── ffmpeg warning ───────────────────────────────────────────────────────────
+def _warn_no_ffmpeg(action="convert to MP3"):
+    msg = (
+        "[bold yellow]  ffmpeg not found![/bold yellow]\n\n"
+        "  ffmpeg is required to " + action + ".\n"
+        "  Install it with:\n\n"
+        "    [bold cyan]winget install Gyan.FFmpeg[/bold cyan]\n\n"
+        "  Then close and reopen the terminal."
+    )
+    console.print()
+    console.print(Panel(msg, border_style="yellow",
+                        title="[bold yellow]  Missing dependency[/bold yellow]",
+                        padding=(0, 2)))
+
+# ─── Retry / backoff ──────────────────────────────────────────────────────────
+_FATAL_ERRORS = [
+    "ffmpeg is not installed", "ffmpeg not found", "abort-on-error",
+    "aborting due to", "requested merging of multiple formats",
+    "sign in to confirm", "video unavailable", "private video",
+    "age-restricted", "copyright", "format not available",
+]
+
+def retry_with_backoff(func, max_retries=999, base_delay=5, max_delay=300):
+    attempt, delay = 0, base_delay
+    while not stop_event.is_set():
+        try:
+            return func()
+        except Exception as e:
+            msg = str(e).lower()
+            if any(f in msg for f in _FATAL_ERRORS):
+                raise
+            attempt += 1
+            is_net = any(x in msg for x in [
+                "connection","timeout","network","reset","refused","broken pipe",
+                "ssl","certificate","name or service","temporary failure",
+                "unreachable","no route","http error 5","503","502","429","rate limit",
+            ])
+            if attempt >= max_retries and not is_net:
+                raise
+            if stop_event.is_set():
+                break
+            delay = min(delay * 1.5, max_delay)
+            warn("Error (attempt " + str(attempt) + "): " + str(e)[:80])
+            info("Retrying in " + str(int(delay)) + "s...")
+            for _ in range(int(delay)):
+                if stop_event.is_set(): return None
+                time.sleep(1)
+    return None
+
+# ─── yt-dlp logger & progress hook ───────────────────────────────────────────
+_SUPPRESS_WARNINGS = [
+    "no supported javascript runtime", "js runtime", "--js-runtimes",
+    "youtube extraction without a js", "writing dash", "only some players",
+]
+
+_ERROR_HINTS = [
+    ("ffmpeg is not installed",              "Fix: winget install Gyan.FFmpeg  (then reopen terminal)"),
+    ("requested merging of multiple formats","Fix: winget install Gyan.FFmpeg  (then reopen terminal)"),
+    ("private video",                        "This video is private — cannot be downloaded."),
+    ("sign in to confirm",                   "Age-restricted — YouTube requires sign-in."),
+    ("age-restricted",                       "Age-restricted — cannot download without authentication."),
+    ("video unavailable",                    "Video unavailable (deleted, region-blocked, or private)."),
+    ("blocked in your country",              "Geo-blocked. Try a VPN."),
+    ("not available in your country",        "Geo-blocked. Try a VPN."),
+    ("copyright",                            "Blocked due to a copyright claim."),
+    ("requested format is not available",    "Selected quality not available. Try a different format."),
+    ("format not available",                 "Selected quality not available. Try a different format."),
+    ("unable to extract",                    "Could not extract video info. URL may be invalid."),
+    ("unsupported url",                      "Unsupported URL."),
+    ("connection",                           "Network error — check connection or proxy (press P)."),
+    ("timeout",                              "Connection timed out — check network or try again."),
+    ("no such file",                         "Output path inaccessible. Check folder permissions."),
+]
+
+def _diagnose_error(e: Exception) -> str:
+    msg = str(e).lower()
+    for keyword, hint in _ERROR_HINTS:
+        if keyword in msg:
+            return hint
+    return ""
+
+class YTLogger:
+    def debug(self, msg): pass
+    def info(self, msg):  pass
+    def warning(self, msg):
+        if any(s in msg.lower() for s in _SUPPRESS_WARNINGS): return
+        warn(msg)
+    def error(self, msg):
+        if not stop_event.is_set(): error(msg)
+
+_progress_ctx: dict = {"obj": None, "task": None, "last": 0}
+
+def yt_hook(d):
+    if stop_event.is_set():
+        raise yt_dlp.utils.DownloadError("Stopped by user")
+    p = _progress_ctx
+    if d["status"] == "downloading" and p["obj"] and p["task"] is not None:
+        total = d.get("total_bytes") or d.get("total_bytes_estimate") or None
+        done  = d.get("downloaded_bytes", 0)
+        fname = Path(d.get("filename","")).name
+        p["obj"].update(p["task"], completed=done, total=total,
+                        description="[cyan]" + fname[:50] + "[/cyan]")
+        p["last"] = done
+    elif d["status"] == "finished" and p["obj"] and p["task"] is not None:
+        t = d.get("total_bytes", p["last"])
+        p["obj"].update(p["task"], completed=t, total=t)
+
+def make_progress():
+    return Progress(
+        SpinnerColumn(spinner_name="dots", style="cyan"),
+        TextColumn("[progress.description]{task.description}"),
+        BarColumn(bar_width=32, style="cyan", complete_style="bold green"),
+        TaskProgressColumn(),
+        DownloadColumn(),
+        TransferSpeedColumn(),
+        TimeRemainingColumn(),
+        console=console,
+        transient=False,
+    )
 
 # ─── Proxy ────────────────────────────────────────────────────────────────────
 def _get_current_proxy():
@@ -468,8 +588,8 @@ def _install_ffmpeg():
         dest_dir.mkdir(parents=True, exist_ok=True)
         zip_path = dest_dir / "ffmpeg.zip"
         info("Downloading: " + url)
-        with Progress(SpinnerColumn(), TextColumn("{task.description}"),
-                      BarColumn(), DownloadColumn(), transient=True) as prog:
+        with Progress(SpinnerColumn(spinner_name="dots"), TextColumn("{task.description}"),
+                      BarColumn(complete_style="cyan bold", pulse_style="cyan"), DownloadColumn(), transient=True) as prog:
             task = prog.add_task("Downloading ffmpeg", total=None)
             with opener.open(url, timeout=120) as resp, open(zip_path, "wb") as fout:
                 while True:
@@ -605,151 +725,207 @@ def _pick_output_folder():
 
 # ─── YouTube ──────────────────────────────────────────────────────────────────
 def _get_yt_formats(url):
-    ydl_opts = {"quiet":True,"no_warnings":True,"listformats":False,"noplaylist":True}
+    ydl_opts = {"quiet": True, "no_warnings": True, "listformats": False, "noplaylist": True}
     prx = _get_current_proxy()
-    if prx: ydl_opts["proxy"] = prx
-    with yt_dlp.YoutubeDL(ydl_opts) as ydl:
-        return ydl.extract_info(url, download=False)
+    if prx:
+        ydl_opts["proxy"] = prx
+    try:
+        with yt_dlp.YoutubeDL(ydl_opts) as ydl:
+            return ydl.extract_info(url, download=False)
+    except Exception as e:
+        err_s = str(e)
+        # proxy unreachable → offer to clear and retry without proxy
+        if prx and ("Unable to connect to proxy" in err_s or "10061" in err_s or "ProxyError" in err_s):
+            warn("Proxy unreachable: " + prx)
+            ans = Prompt.ask(
+                "  [bold yellow]Clear proxy and retry without it?[/bold yellow] [dim](y / n)[/dim]",
+                default="y"
+            ).strip().lower()
+            if ans != "n":
+                _clear_proxy()
+                info("Retrying without proxy...")
+                with yt_dlp.YoutubeDL({"quiet": True, "no_warnings": True,
+                                       "listformats": False, "noplaylist": True}) as ydl:
+                    return ydl.extract_info(url, download=False)
+        raise
 
-def _yt_quality_menu(info_dict):
-    title    = info_dict.get("title","Unknown")
-    duration = fmt_dur(info_dict.get("duration"))
-    fmts     = info_dict.get("formats", [])
+# ─── YouTube: info panel ──────────────────────────────────────────────────────
+def _show_yt_info(info_dict):
+    title   = info_dict.get("title", "?")
+    channel = info_dict.get("uploader") or info_dict.get("channel") or "?"
+    dur     = fmt_dur(info_dict.get("duration"))
+    views   = info_dict.get("view_count")
+    views_s = "{:,}".format(views) if views else "?"
+    body = (
+        "[bold white]" + title + "[/bold white]\n"
+        "[dim]Channel:[/dim] [cyan]" + channel + "[/cyan]   "
+        "[dim]Duration:[/dim] [green]" + dur + "[/green]   "
+        "[dim]Views:[/dim] [yellow]" + views_s + "[/yellow]"
+    )
+    console.print(Panel(body, border_style="cyan", title="[bold]Video Info[/bold]", padding=(0,2)))
 
-    # separate video+audio combos and audio-only
-    combos, audio_only = [], []
-    for f in fmts:
-        vcodec = f.get("vcodec","none")
-        acodec = f.get("acodec","none")
-        if vcodec not in (None,"none") and acodec not in (None,"none"):
-            combos.append(f)
-        elif vcodec in (None,"none") and acodec not in (None,"none"):
-            audio_only.append(f)
+def _yt_quality_menu(info_dict) -> tuple:
+    _show_yt_info(info_dict)
+    fmts = info_dict.get("formats", [])
+    ff   = _has_ffmpeg()
 
-    # group combos by height
-    by_height = {}
-    for f in combos:
-        h = f.get("height") or 0
-        if h not in by_height or (f.get("filesize") or 0) > (by_height[h].get("filesize") or 0):
-            by_height[h] = f
-    video_rows = sorted(by_height.values(), key=lambda x: x.get("height") or 0, reverse=True)
+    combos     = sorted(
+        [f for f in fmts if f.get("vcodec","none") != "none" and f.get("acodec","none") != "none"],
+        key=lambda x: (x.get("height") or 0, x.get("tbr") or 0), reverse=True)
+    video_only = sorted(
+        [f for f in fmts if f.get("vcodec","none") != "none" and f.get("acodec","none") == "none"],
+        key=lambda x: (x.get("height") or 0, x.get("tbr") or 0), reverse=True)
+    audio_only = sorted(
+        [f for f in fmts if f.get("vcodec","none") == "none" and f.get("acodec","none") != "none"],
+        key=lambda x: x.get("abr") or 0, reverse=True)
 
-    # best audio only
-    best_audio = max(audio_only, key=lambda f: f.get("abr") or 0) if audio_only else None
+    options = []
+    table = Table(box=box.ROUNDED, show_header=True, header_style="bold magenta",
+                  border_style="dim", padding=(0,1))
+    table.add_column("#",       style="bold cyan",  width=4, justify="right")
+    table.add_column("Type",    width=16)
+    table.add_column("Quality", style="bold green", width=13)
+    table.add_column("Format",  style="yellow",     width=7)
+    table.add_column("Size",    style="blue",        width=12)
+    table.add_column("Codec",   style="dim",         width=22)
 
-    rows = []
-    for f in video_rows:
-        h     = f.get("height") or 0
-        fps   = f.get("fps") or ""
-        vcodec= f.get("vcodec","").split(".")[0]
-        acodec= f.get("acodec","").split(".")[0]
-        sz    = fmt_size(f.get("filesize") or f.get("filesize_approx"))
-        label = str(h) + "p" + (" " + str(fps) + "fps" if fps else "")
-        rows.append({"label":label,"fmt_id":f["format_id"],"size":sz,
-                     "note":vcodec + "+" + acodec,"type":"video"})
-    if best_audio:
-        abr  = best_audio.get("abr") or "?"
-        ac   = best_audio.get("acodec","").split(".")[0]
-        sz   = fmt_size(best_audio.get("filesize") or best_audio.get("filesize_approx"))
-        rows.append({"label":"Audio only  " + str(abr) + " kbps",
-                     "fmt_id":best_audio["format_id"],"size":sz,"note":ac,"type":"audio"})
+    for f in combos[:6]:
+        h  = f.get("height","?"); fps = f.get("fps","")
+        q  = str(h) + "p" + ("@" + str(fps) + "fps" if fps else "") if h != "?" else "?"
+        sz = fmt_size(f.get("filesize") or f.get("filesize_approx"))
+        vc = (f.get("vcodec") or "")[:10]; ac = (f.get("acodec") or "")[:8]
+        idx = len(options)+1; options.append(("combined", f["format_id"]))
+        table.add_row(str(idx), "\U0001f3ac Video+Audio", q, f.get("ext","?"), sz, vc+"+"+ac)
 
-    print_section("Quality \u2014 " + title[:50], "\u2699")
-    info("Duration: " + duration)
-    t = Table(box=box.ROUNDED, show_header=True, border_style="cyan", padding=(0,1))
-    t.add_column("#",       style="bold cyan", width=5,  justify="right")
-    t.add_column("Quality", style="white",     width=18)
-    t.add_column("Size",    style="dim",       width=10)
-    t.add_column("Codecs",  style="dim",       width=14)
-    for i,r in enumerate(rows,1):
-        t.add_row(str(i), r["label"], r["size"], r["note"])
-    console.print(t)
+    for h in [2160,1440,1080,720,480,360,240,144]:
+        m = [f for f in video_only if f.get("height") == h]
+        if not m: continue
+        f = m[0]; fps = f.get("fps","")
+        sz = fmt_size(f.get("filesize") or f.get("filesize_approx"))
+        vc = (f.get("vcodec") or "")[:10]
+        idx = len(options)+1; options.append(("merge", h))
+        needs = "" if ff else " [dim](needs ffmpeg)[/dim]"
+        table.add_row(str(idx), "[bold]\U0001f4fa Video HD[/bold]",
+                      str(h)+"p"+("@"+str(fps)+"fps" if fps else ""), "mp4",
+                      (sz+"+" if sz != "?" else "?"), vc+"+bestaudio"+needs)
+
+    for f in audio_only[:4]:
+        abr = f.get("abr","?")
+        q   = str(abr) + " kbps" if abr != "?" else f.get("format_note","?")
+        sz  = fmt_size(f.get("filesize") or f.get("filesize_approx"))
+        idx = len(options)+1; options.append(("audio", f["format_id"]))
+        table.add_row(str(idx), "[green]\U0001f3b5 Audio Only[/green]", q,
+                      (f.get("ext") or "?"), sz, (f.get("acodec") or "")[:20])
+
+    for label, kind, fmt_id in [
+        ("\U0001f3c6 Best Quality (auto)", "best_v", "bestvideo+bestaudio/best"),
+        ("\U0001f399 Audio MP3 192k",      "best_a", "bestaudio/best"),
+    ]:
+        idx = len(options)+1; options.append((kind, fmt_id))
+        table.add_row(str(idx), label, "auto", "auto", "?", "yt-dlp auto")
+
+    console.print(table)
+    if not ff:
+        warn("ffmpeg not found \u2014 Video HD rows need it for merging.  "
+             "Type [bold]i[/bold] at URL prompt to install.")
 
     while True:
-        sel = Prompt.ask("  [bold yellow]Select quality #[/bold yellow]", default="1").strip()
-        if sel.isdigit() and 1 <= int(sel) <= len(rows):
-            return rows[int(sel)-1]
-        warn("Enter a number between 1 and " + str(len(rows)) + ".")
+        choice = IntPrompt.ask("  [bold yellow]Select quality #[/bold yellow]",
+                               default=len(options)-1)
+        choice = max(1, min(choice, len(options)))
+        kind, val = options[choice-1]
+        if not ff and kind in ("merge", "best_v"):
+            warn("This format requires ffmpeg. Type [bold]i[/bold] to install it.")
+            continue
+        if kind == "combined": return val, False
+        if kind == "merge":    return "bestvideo[height<=" + str(val) + "]+bestaudio/best", False
+        if kind == "audio":    return val, False
+        if kind == "best_v":   return val, False
+        if kind == "best_a":   return val, True
+        return "bestvideo+bestaudio/best", False
 
-def _download_yt(url, out_folder, fmt):
+def _download_yt(url, out_folder, fmt, is_audio=False):
     stop_event.clear()
-    prx = _get_current_proxy()
-    max_r = DL_SETTINGS["max_retries"]
+    prx   = _get_current_proxy()
+    maxr  = DL_SETTINGS["max_retries"]
     frags = DL_SETTINGS["fragments"]
-    retry_label = "infinite" if max_r >= 999 else str(max_r)
-
+    retry_label = "infinite" if maxr >= 999 else str(maxr)
     print_section("Downloading", "\u2b07")
-    info("Resume enabled  \u00b7  " + retry_label + " retr" + ("y" if max_r==1 else "ies") +
+    info("Resume enabled  \u00b7  " + retry_label + " retr" + ("y" if maxr==1 else "ies") +
          "  \u00b7  " + str(frags) + "-thread fragments")
 
-    class _Hook:
-        def __init__(self):
-            self.prog  = None
-            self.task  = None
-            self.total = None
-            self._ctx  = None
-        def __call__(self, d):
-            if stop_event.is_set(): raise KeyboardInterrupt
-            if d["status"] == "downloading":
-                total = d.get("total_bytes") or d.get("total_bytes_estimate")
-                downloaded = d.get("downloaded_bytes", 0)
-                if self.prog is None:
-                    self._ctx = Progress(
-                        SpinnerColumn(),
-                        TextColumn("{task.description}"),
-                        BarColumn(bar_width=40),
-                        DownloadColumn(),
-                        TransferSpeedColumn(),
-                        TimeRemainingColumn(),
-                        console=console, transient=False
-                    )
-                    self.prog = self._ctx.__enter__()
-                    self.task = self.prog.add_task("Downloading", total=total)
-                    self.total = total
-                elif total and self.total != total:
-                    self.prog.update(self.task, total=total)
-                    self.total = total
-                self.prog.update(self.task, completed=downloaded)
-            elif d["status"] == "finished":
-                if self.prog:
-                    self.prog.update(self.task, completed=self.total or 1)
-                    self._ctx.__exit__(None,None,None)
-                    self.prog = None
-
-    hook = _Hook()
-    ydl_opts = {
-        "format":          fmt["fmt_id"],
-        "outtmpl":         str(out_folder / "%(title)s.%(ext)s"),
-        "progress_hooks":  [hook],
-        "quiet":           True,
-        "no_warnings":     True,
-        "continuedl":      True,
-        "retries":         max_r,
-        "fragment_retries":max_r,
+    opts = {
+        "format":                        fmt,
+        "outtmpl":                       str(out_folder / "%(title)s.%(ext)s"),
+        "continuedl":                    True,
+        "retries":                       maxr,
+        "fragment_retries":              maxr,
+        "skip_unavailable_fragments":    False,
         "concurrent_fragment_downloads": frags,
-        "noprogress":      True,
+        "socket_timeout":                30,
+        "http_chunk_size":               10 * 1024 * 1024,
+        "logger":                        YTLogger(),
+        "progress_hooks":                [yt_hook],
+        "merge_output_format":           "mp4" if not is_audio else None,
+        "quiet":                         True,
+        "no_progress":                   True,
+        "file_access_retries":           10,
+        "extractor_retries":             10,
+        "postprocessors": (
+            [{"key":"FFmpegExtractAudio","preferredcodec":"mp3","preferredquality":"192"}]
+            if is_audio else []
+        ),
     }
-    if prx: ydl_opts["proxy"] = prx
+    if prx:
+        opts["proxy"] = prx
 
-    attempt = 0
-    while not stop_event.is_set():
-        attempt += 1
+    def _do_download():
+        with yt_dlp.YoutubeDL(opts) as ydl:
+            ydl.download([url])
+
+    with make_progress() as prog:
+        _progress_ctx["last"] = 0
+        _progress_ctx["task"] = prog.add_task("[cyan]Downloading...[/cyan]", total=None)
+        _progress_ctx["obj"]  = prog
         try:
-            with yt_dlp.YoutubeDL(ydl_opts) as ydl:
-                ydl.download([url])
-            success("Download complete!  \u2192  " + str(out_folder))
-            return
+            retry_with_backoff(_do_download, max_retries=maxr)
         except KeyboardInterrupt:
             warn("Stopped by user.")
             return
         except Exception as e:
             if stop_event.is_set(): return
             err_s = str(e)
-            warn("[" + str(attempt) + "] Error: " + err_s[:120])
-            if "Sign in" in err_s or "bot" in err_s.lower():
-                error("YouTube requires sign-in or bot check \u2014 try a different URL.")
-                return
-            time.sleep(min(attempt * 2, 30))
+            prx2  = _get_current_proxy()
+            if prx2 and ("Unable to connect to proxy" in err_s or "10061" in err_s):
+                warn("Proxy unreachable: " + prx2)
+                ans = Prompt.ask(
+                    "  [bold yellow]Clear proxy and retry?[/bold yellow] [dim](y / n)[/dim]",
+                    default="y").strip().lower()
+                if ans != "n":
+                    _clear_proxy()
+                    opts.pop("proxy", None)
+                    try:
+                        with make_progress() as prog2:
+                            _progress_ctx["last"] = 0
+                            _progress_ctx["task"] = prog2.add_task("[cyan]Downloading...[/cyan]", total=None)
+                            _progress_ctx["obj"]  = prog2
+                            retry_with_backoff(_do_download, max_retries=maxr)
+                        success("Download complete!  \u2192  " + str(out_folder))
+                        return
+                    except Exception as e2:
+                        error(str(e2)[:200])
+                        hint = _diagnose_error(e2)
+                        if hint: info(hint)
+                        return
+            error(str(e)[:200])
+            hint = _diagnose_error(e)
+            if hint: info(hint)
+            return
+        finally:
+            _progress_ctx["task"] = None
+            _progress_ctx["obj"]  = None
+
+    success("Download complete!  \u2192  " + str(out_folder))
 
 # ─── Podcast / direct ─────────────────────────────────────────────────────────
 def _is_rss(text):
@@ -801,7 +977,7 @@ def _convert_audio(raw_path, out_path, fmt_key):
     bitrate = bitrate_map.get(fmt_key,"192k")
     ext     = ext_map.get(fmt_key,"mp3")
     final   = out_path.with_suffix("." + ext)
-    with Progress(SpinnerColumn(), TextColumn("{task.description}"), BarColumn(),
+    with Progress(SpinnerColumn(spinner_name="dots"), TextColumn("{task.description}"), BarColumn(complete_style="cyan bold", pulse_style="cyan"),
                   transient=True, console=console) as prog:
         prog.add_task("Converting to " + ext.upper() + "...", total=None)
         subprocess.check_call(
@@ -818,7 +994,7 @@ def _download_podcast_url(url, out_folder, fmt_tuple):
     frags = DL_SETTINGS["fragments"]
     retry_label = "infinite" if max_r >= 999 else str(max_r)
 
-    print_section("Downloading", "\u2b07")
+    print_section("Downloading", "\u2193")
     info("Resume enabled  \u00b7  " + retry_label + " retr" + ("y" if max_r==1 else "ies") +
          "  \u00b7  " + str(frags) + "-thread fragments")
 
@@ -989,8 +1165,12 @@ def main():
                 if not info_dict:
                     error("Could not fetch video info.")
                     continue
-                fmt = _yt_quality_menu(info_dict)
-                _download_yt(url, out_folder, fmt)
+                fmt, is_audio = _yt_quality_menu(info_dict)
+                if is_audio and not _has_ffmpeg():
+                    _warn_no_ffmpeg("convert to MP3")
+                    continue
+                _download_yt(url, out_folder, fmt, is_audio)
+
             else:
                 _handle_podcast(url, out_folder)
         except KeyboardInterrupt:
@@ -998,6 +1178,20 @@ def main():
         except Exception as e:
             error("Unexpected error: " + str(e))
             traceback.print_exc()
+            
+        console.print()
+        while True:
+            again = Prompt.ask(
+                "  [bold yellow]Download another?[/bold yellow] [dim](y / n)[/dim]",
+                default="y"
+            ).strip().lower()
+            if again in ("", "y", "n"):
+                break
+            warn("Please enter y or n.")
+        if again == "n":
+            console.print()
+            console.print(Align(Text("bye ❤", style="bold cyan"), align="center"))
+            break
 
 if __name__ == "__main__":
     main()
