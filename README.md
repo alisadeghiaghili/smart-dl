@@ -9,11 +9,14 @@ Designed for users behind weak connections and VPNs — SmartDL never gives up.
 [![License: MIT](https://img.shields.io/badge/license-MIT-green?style=flat-square)](LICENSE)
 [![Buy Me a Coffee](https://img.shields.io/badge/support-Buy%20Me%20a%20Coffee-yellow?style=flat-square&logo=buy-me-a-coffee)](https://buymeacoffee.com/alisadeghil)
 
+> If SmartDL saved you from a broken download at 3am — you know what to do. ☕  
+> **[buymeacoffee.com/alisadeghil](https://buymeacoffee.com/alisadeghil)**
+
 ---
 
 ## Features
 
-- **YouTube** — video (360p to 4K), audio-only (m4a/opus), or MP3 conversion
+- **YouTube** — full format list (all resolutions, all audio tracks), video info panel, or MP3 conversion
 - **Podcasts** — direct MP3/M4A links, RSS feeds, SoundCloud, and more
 - **Resume downloads** — picks up exactly where it left off after a disconnect
 - **Infinite retry with backoff** — waits and retries on network failure; never fails silently
@@ -108,11 +111,14 @@ SmartDL is intended for **personal use only**. Downloading copyrighted content w
 
 ---
 
-## Support
+## ☕ Support
 
-If SmartDL saved you time or sanity, consider buying me a coffee:
+SmartDL is free, ad-free, and built on stubbornness.  
+If it saved your download, your sanity, or your deadline — a coffee goes a long way:
 
 [![Buy Me a Coffee](https://www.buymeacoffee.com/assets/img/custom_images/yellow_img.png)](https://buymeacoffee.com/alisadeghil)
+
+No pressure. But karma is real.
 
 ---
 
