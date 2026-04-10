@@ -73,7 +73,7 @@ LOGO = r"""
  ___) | | | | | | (_| | |  | |_| |_| | |___
 |____/|_| |_| |_|\__,_|_|   \__|____/|_____|
 """
-VERSION = "2.3.0"
+VERSION = "2.3.1"
 
 # ─── Download settings (user-configurable) ───────────────────────────────────
 DL_SETTINGS = {
@@ -168,12 +168,21 @@ def fmt_dur(s):
 
 def safe_filename(s, maxlen=80):
     return ("".join(c for c in s if c.isalnum() or c in " ._-()[]").strip() or "file")[:maxlen]
-
+    
 def print_header():
     console.print()
     console.print(Align(Text(LOGO.strip(), style="bold cyan"), align="center"))
-    console.print(Align(Text("v" + VERSION + "  \u00b7  Smart YouTube & Podcast Downloader  \u00b7  Ctrl+C to stop", style="dim"), align="center"))
-    console.print(Align(Text("by Hellch!ef  \u00b7  if u know u know", style="dim italic"), align="center"))
+    console.print(Align(Text("v" + VERSION + "  ·  Smart YouTube & Podcast Downloader  ·  Ctrl+C to stop", style="dim"), align="center"))
+    console.print(Align(Text("by Hellch!ef  ·  if u know u know", style="dim italic"), align="center"))
+    console.print(Align(Text("☕  buymeacoffee.com/alisadeghil", style="bold yellow"), align="center"))
+    console.print(Rule(style="cyan"))
+    console.print()
+
+def _bye():
+    console.print()
+    console.print(Rule(style="cyan"))
+    console.print(Align(Text("bye ❤", style="bold cyan"), align="center"))
+    console.print(Align(Text("☕  buymeacoffee.com/alisadeghil", style="bold yellow"), align="center"))
     console.print(Rule(style="cyan"))
     console.print()
 
@@ -403,12 +412,14 @@ def _hint_proxy_port(addr):
 
 def _proxy_menu():
     LOCALHOST_PORTS = [
-        (10808, "v2rayN / Xray  (SOCKS5 default)"),
-        (10809, "v2rayN / Xray  (HTTP default)"),
-        (7890,  "Clash for Windows"),
+        (10809, "v2rayN / Xray / Nekoray     (HTTP)"),
+        (10808, "v2rayN / Xray / Nekoray     (SOCKS5)"),
+        (7890,  "Clash / ClashX / MahsaNG   (HTTP)"),
+        (7891,  "Clash / ClashX / MahsaNG   (SOCKS5)"),
+        (2081,  "Hiddify                    (HTTP)"),
+        (2080,  "Hiddify                    (SOCKS5)"),
         (1080,  "Generic SOCKS5"),
         (8080,  "Generic HTTP"),
-        (3128,  "Squid / generic HTTP"),
     ]
     while True:
         console.print()
@@ -417,8 +428,8 @@ def _proxy_menu():
         t.add_column(style="white")
         t.add_column(style="dim")
         t.add_row("1", "Enter proxy address manually", "(http://host:port or socks5://host:port)")
-        t.add_row("2", "Use localhost", "(Proxifier / Clash / v2ray common ports)")
-        t.add_row("3", "Paste v2ray share link", "(vmess:// \u00b7 vless:// \u00b7 trojan:// \u00b7 ss://)")
+        t.add_row("2", "Use localhost port", "(v2rayN · Clash · Hiddify · Nekoray)")
+        t.add_row("3", "I'm using a VPN", "(WireGuard · OpenVPN · AnyConnect)")
         t.add_row("4", "Clear proxy", "(none)")
         t.add_row("0", "Cancel / back", "")
         console.print(Panel(t, title="[bold cyan]  Proxy Setup[/bold cyan]",
@@ -447,8 +458,11 @@ def _proxy_menu():
             for idx,(port,label) in enumerate(LOCALHOST_PORTS,1):
                 t2.add_row(str(idx), str(port), label, "http://127.0.0.1:" + str(port))
             t2.add_row("C", "custom", "Enter a custom port", "")
+            t2.add_row("0", "back", "Return to proxy menu", "")
             console.print(t2)
             sel = Prompt.ask("  [bold yellow]Select[/bold yellow]", default="2").strip().lower()
+            if sel == "0":
+                continue
             if sel == "c":
                 p = Prompt.ask("  [bold yellow]Port[/bold yellow]").strip()
                 if p.isdigit():
@@ -461,12 +475,14 @@ def _proxy_menu():
             break
 
         elif ch == "3":
-            link = Prompt.ask("  [bold yellow]v2ray link[/bold yellow]").strip()
-            addr = _parse_v2ray_link(link)
-            if addr:
-                _apply_proxy(addr); success("Proxy set from v2ray link: " + addr)
-            else:
-                error("Could not parse link. Use manual entry instead.")
+            _clear_proxy()
+            console.print(Panel(
+                "[bold green]  Proxy cleared.[/bold green]\n\n"
+                "  [dim]WireGuard, OpenVPN, and AnyConnect route traffic at the system\n"
+                "  level — no local proxy needed. SmartDL will use your VPN directly.\n\n"
+                "  If downloads were failing with a proxy set, this should fix it.[/dim]",
+                border_style="green", title="[bold green]  VPN Mode[/bold green]", padding=(0, 2)
+            ))
             break
 
         elif ch == "4":
@@ -474,36 +490,6 @@ def _proxy_menu():
             break
         else:
             warn("Invalid selection.")
-
-def _parse_v2ray_link(link: str) -> str:
-    import base64 as _b64
-    link = link.strip()
-    try:
-        if link.startswith("vmess://"):
-            raw = link[8:]
-            pad = (-len(raw)) % 4
-            decoded = _b64.b64decode(raw + "=" * pad).decode("utf-8")
-            import json as _j
-            cfg = _j.loads(decoded)
-            host = cfg.get("add","127.0.0.1")
-            port = cfg.get("port", 10809)
-            return "http://" + str(host) + ":" + str(port)
-        elif link.startswith(("vless://","trojan://")):
-            rest = link.split("://",1)[1]
-            hostport = rest.split("@",1)[-1].split("?")[0].split("/")[0]
-            return "http://" + hostport
-        elif link.startswith("ss://"):
-            rest = link[5:]
-            if "@" in rest:
-                hostport = rest.split("@",1)[1].split("/")[0].split("#")[0]
-            else:
-                pad = (-len(rest)) % 4
-                decoded = _b64.b64decode(rest + "=" * pad).decode()
-                hostport = decoded.split("@",1)[-1] if "@" in decoded else decoded.split(":",1)[1]
-            return "http://" + hostport
-    except Exception:
-        pass
-    return ""
 
 # ─── Install menu ─────────────────────────────────────────────────────────────
 def _install_menu():
@@ -830,8 +816,11 @@ def _yt_quality_menu(info_dict) -> tuple:
              "Type [bold]i[/bold] at URL prompt to install.")
 
     while True:
-        choice = IntPrompt.ask("  [bold yellow]Select quality #[/bold yellow]",
+        try:
+            choice = IntPrompt.ask("  [bold yellow]Select quality #[/bold yellow]",
                                default=len(options)-1)
+        except (KeyboardInterrupt, EOFError):
+            return None, False
         choice = max(1, min(choice, len(options)))
         kind, val = options[choice-1]
         if not ff and kind in ("merge", "best_v"):
@@ -856,7 +845,7 @@ def _download_yt(url, out_folder, fmt, is_audio=False):
 
     opts = {
         "format":                        fmt,
-        "outtmpl":                       str(out_folder / "%(title)s.%(ext)s"),
+        "outtmpl":                       str(out_folder / "%(title)s [%(format_id)s].%(ext)s"),
         "continuedl":                    True,
         "retries":                       maxr,
         "fragment_retries":              maxr,
@@ -866,7 +855,7 @@ def _download_yt(url, out_folder, fmt, is_audio=False):
         "http_chunk_size":               10 * 1024 * 1024,
         "logger":                        YTLogger(),
         "progress_hooks":                [yt_hook],
-        "merge_output_format":           "mp4" if not is_audio else None,
+        "merge_output_format":           "mp4" if (not is_audio and "+" in fmt) else None,
         "quiet":                         True,
         "no_progress":                   True,
         "file_access_retries":           10,
@@ -929,7 +918,7 @@ def _download_yt(url, out_folder, fmt, is_audio=False):
 
 # ─── Podcast / direct ─────────────────────────────────────────────────────────
 def _is_rss(text):
-    return "<rss" in text[:2000] or "<feed" in text[:2000] or "<channel>" in text[:2000]
+    return "<rss" in text[:2000] or "<feed" in text[:2000]
 
 def _parse_rss(text):
     items = []
@@ -966,7 +955,10 @@ def _podcast_quality_menu():
         warn("Conversion options require ffmpeg")
         info("Type [bold]i[/bold] at the URL prompt to install ffmpeg from within SmartDL.")
     while True:
-        sel = Prompt.ask("  [bold yellow]Select quality #[/bold yellow]", default="1").strip()
+        try:
+            sel = Prompt.ask("  [bold yellow]Select quality #[/bold yellow]", default="1").strip()
+        except (KeyboardInterrupt, EOFError):
+            return None, False
         if sel.isdigit() and 1 <= int(sel) <= len(rows):
             return rows[int(sel)-1]
         warn("Enter a number between 1 and " + str(len(rows)) + ".")
@@ -1124,22 +1116,29 @@ def main():
         title="[bold]  Quick Guide[/bold]", border_style="white", padding=(0,2)
     ))
 
-    out_folder = _pick_output_folder()
-    _proxy_step()
+    try:
+        out_folder = _pick_output_folder()
+        _proxy_step()
+    except (KeyboardInterrupt, EOFError):
+        _bye()
+        return
 
     while True:
         stop_event.clear()
         console.print()
         console.print(Rule(style="dim"))
         console.print()
-        url = Prompt.ask(
-            "  [bold cyan]\U0001f517 URL[/bold cyan] "
-            "[dim](q = quit  \u00b7  p = proxy  \u00b7  s = settings  \u00b7  i = install)[/dim]"
-        ).strip()
-
+        try:
+            url = Prompt.ask(
+                "  [bold cyan]\U0001f517 URL[/bold cyan] "
+                "[dim](q = quit  \u00b7  p = proxy  \u00b7  s = settings  \u00b7  i = install)[/dim]"
+            ).strip()
+        except (KeyboardInterrupt, EOFError):
+            _bye()
+            return
+            
         if url.lower() == "q":
-            console.print()
-            console.print(Align(Text("bye \u2764", style="bold cyan"), align="center"))
+            _bye()
             break
 
         if url.lower() == "p":
@@ -1166,6 +1165,8 @@ def main():
                     error("Could not fetch video info.")
                     continue
                 fmt, is_audio = _yt_quality_menu(info_dict)
+                if fmt is None:
+                    continue
                 if is_audio and not _has_ffmpeg():
                     _warn_no_ffmpeg("convert to MP3")
                     continue
@@ -1181,16 +1182,19 @@ def main():
             
         console.print()
         while True:
-            again = Prompt.ask(
-                "  [bold yellow]Download another?[/bold yellow] [dim](y / n)[/dim]",
-                default="y"
-            ).strip().lower()
+            try:
+                again = Prompt.ask(
+                    " [bold yellow]Download another?[/bold yellow] [dim](y / n)[/dim]",
+                    default="y"
+                ).strip().lower()
+            except (KeyboardInterrupt, EOFError):
+                _bye()
+                return
             if again in ("", "y", "n"):
                 break
             warn("Please enter y or n.")
         if again == "n":
-            console.print()
-            console.print(Align(Text("bye ❤", style="bold cyan"), align="center"))
+            _bye()
             break
 
 if __name__ == "__main__":
