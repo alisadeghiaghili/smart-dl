@@ -4,6 +4,23 @@ All notable changes to SmartDL are documented here.
 Format follows [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 ---
+## [2.3.1] - 2026-04-10
+
+### Fixed
+- **Proxy detection**: lowercase env vars (`https_proxy`, `http_proxy`) now
+  checked for Linux/Mac compatibility; Windows registry proxy now correctly
+  calls `_apply_proxy()` to persist config and set env vars for the session
+- **Keyboard interrupt / EOFError**: `_pick_output_folder()` and `_proxy_step()`
+  wrapped in `try/except` in `main()`; "Download another?" prompt now also
+  protected — all exit paths consistently call `_bye()`
+- **RSS false positive**: `_is_rss()` now uses tag-based `<rss`/`<feed` checks
+  instead of loose substring matching that triggered on any page containing
+  "channel" or "feed"
+- **Duplicate code**: removed duplicate `_has_ffmpeg()` definition, duplicate
+  `print_section()` definition, duplicate `if again in (…)` block, and unused
+  `_parse_v2ray_link()` function
+
+---
 
 ## [2.3.0] — 2026-04-10
 
