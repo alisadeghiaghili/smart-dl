@@ -8,6 +8,7 @@ Designed for users behind weak connections and VPNs — SmartDL never gives up.
 [![Python](https://img.shields.io/badge/python-3.8%2B-blue?style=flat-square)](https://www.python.org/)
 [![License: MIT](https://img.shields.io/badge/license-MIT-green?style=flat-square)](LICENSE)
 [![Buy Me a Coffee](https://img.shields.io/badge/support-Buy%20Me%20a%20Coffee-yellow?style=flat-square&logo=buy-me-a-coffee)](https://buymeacoffee.com/alisadeghil)
+[![GitHub Downloads](https://img.shields.io/github/downloads/alisadeghiaghili/smart-dl/total?style=flat-square&label=downloads&color=blue)](https://github.com/alisadeghiaghili/smart-dl/releases)
 
 > If SmartDL saved you from a broken download at 3am — you know what to do. ☕  
 > **[buymeacoffee.com/alisadeghil](https://buymeacoffee.com/alisadeghil)**
