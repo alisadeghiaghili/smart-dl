@@ -78,6 +78,7 @@ On startup:
 | `q` | Quit |
 | `p` | Proxy settings |
 | `s` | Download settings (retries, fragment threads) |
+| `i` | Install dependencies (ffmpeg, Windows Terminal) |
 
 ---
 
