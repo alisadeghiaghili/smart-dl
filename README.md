@@ -89,12 +89,20 @@ On startup:
 |--------|---------|
 | YouTube videos | ✅ |
 | YouTube playlists | ✅ |
+| Aparat videos | ✅ |
+| Aparat playlists | ⚠️ limited |
+| Vimeo | ✅ |
+| TikTok | ✅ |
+| Twitter / X | ✅ video posts |
+| Instagram | ✅ public posts |
+| Reddit | ✅ video posts |
+| Twitch clips | ✅ |
+| Dailymotion | ✅ |
+| Facebook | ✅ public videos |
+| SoundCloud | ✅ |
 | Direct MP3/M4A links | ✅ |
 | RSS podcast feeds | ✅ |
-| SoundCloud | ✅ |
 | Anchor / Spotify (public) | ✅ |
-| Aparat videos         | ✅ |
-| Aparat playlists      | ⚠️ limited |
 
 ---
 
@@ -117,13 +125,10 @@ SmartDL is intended for **personal use only**. Downloading copyrighted content w
 
 ## ☕ Support
 
-SmartDL is free, ad-free, and built on stubbornness.  
-If it saved your download, your sanity, or your deadline — a coffee goes a long way:
+SmartDL is free and always will be.  
+Sponsorships fund faster releases, better diagnostics, and long-term maintenance.
 
 [![Buy Me a Coffee](https://www.buymeacoffee.com/assets/img/custom_images/yellow_img.png)](https://buymeacoffee.com/alisadeghil)
-
-SmartDL is free and always will be.
-Sponsorships fund faster releases, better diagnostics, and long-term maintenance.
 
 ---
 
