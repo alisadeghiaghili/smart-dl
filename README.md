@@ -93,6 +93,8 @@ On startup:
 | RSS podcast feeds | ✅ |
 | SoundCloud | ✅ |
 | Anchor / Spotify (public) | ✅ |
+| Aparat videos         | ✅ |
+| Aparat playlists      | ⚠️ limited |
 
 ---
 
@@ -120,7 +122,8 @@ If it saved your download, your sanity, or your deadline — a coffee goes a lon
 
 [![Buy Me a Coffee](https://www.buymeacoffee.com/assets/img/custom_images/yellow_img.png)](https://buymeacoffee.com/alisadeghil)
 
-No pressure. But karma is real.
+SmartDL is free and always will be.
+Sponsorships fund faster releases, better diagnostics, and long-term maintenance.
 
 ---
 
