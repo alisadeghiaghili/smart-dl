@@ -131,9 +131,12 @@ def main():
                 handle_podcast(url, out_folder)
 
             else:
+                # Check for Persian platforms
+                from smart_dl.extractors.persian import is_persian_platform, download_persian_platform
+                if is_persian_platform(url):
+                    download_persian_platform(url, out_folder)
                 # Check for course platforms
-                from smart_dl.extractors.courses import is_course_url, download_course
-                if is_course_url(url):
+                elif is_course_url(url):
                     download_course(url, out_folder)
                 else:
                     # Generic: try yt-dlp, then check if it's a podcast
