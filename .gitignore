@@ -33,3 +33,12 @@ Downloads/
 # OS
 .DS_Store
 Thumbs.db
+
+# MiMoCode (AI assistant)
+.mimocode/
+*.mimo
+
+# Test artifacts
+.pytest_cache/
+.coverage
+htmlcov/
