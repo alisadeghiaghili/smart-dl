@@ -131,28 +131,33 @@ def main():
                 handle_podcast(url, out_folder)
 
             else:
-                # Generic: try yt-dlp, then check if it's a podcast
-                print_section("Analyzing video", "\U0001f50d")
-                platform = detect_platform(url)
-                if platform:
-                    info("Detected platform: " + platform)
-                vid_info = get_yt_formats(url)
-                if vid_info:
-                    fmt, is_audio = yt_quality_menu(vid_info)
-                    if fmt is not None:
-                        download_yt(url, out_folder, fmt, is_audio)
-                elif vid_info is None and not _prog_mod._no_internet_shown:
-                    try:
-                        import requests
-                        ct = ""
-                        resp = requests.head(url, timeout=10, allow_redirects=True)
-                        ct = resp.headers.get("Content-Type", "")
-                    except Exception:
-                        pass
-                    if is_podcast_url(url, ct=ct):
-                        handle_podcast(url, out_folder)
-                    else:
-                        error("Cannot handle this URL \u2014 yt-dlp could not extract any media.")
+                # Check for course platforms
+                from smart_dl.extractors.courses import is_course_url, download_course
+                if is_course_url(url):
+                    download_course(url, out_folder)
+                else:
+                    # Generic: try yt-dlp, then check if it's a podcast
+                    print_section("Analyzing video", "\U0001f50d")
+                    platform = detect_platform(url)
+                    if platform:
+                        info("Detected platform: " + platform)
+                    vid_info = get_yt_formats(url)
+                    if vid_info:
+                        fmt, is_audio = yt_quality_menu(vid_info)
+                        if fmt is not None:
+                            download_yt(url, out_folder, fmt, is_audio)
+                    elif vid_info is None and not _prog_mod._no_internet_shown:
+                        try:
+                            import requests
+                            ct = ""
+                            resp = requests.head(url, timeout=10, allow_redirects=True)
+                            ct = resp.headers.get("Content-Type", "")
+                        except Exception:
+                            pass
+                        if is_podcast_url(url, ct=ct):
+                            handle_podcast(url, out_folder)
+                        else:
+                            error("Cannot handle this URL \u2014 yt-dlp could not extract any media.")
         except KeyboardInterrupt:
             warn("Interrupted.")
         except Exception as e:

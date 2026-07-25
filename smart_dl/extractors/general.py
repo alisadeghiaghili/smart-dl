@@ -39,6 +39,15 @@ PERSIAN_PLATFORMS = {
     "cinemakhd.com": "CinemaKHD",
     "cinemahez.ir": "CinemaHez",
     "downloadha.com": "DownloadHa",
+    # Course platforms
+    "udemy.com": "Udemy",
+    "hotmart.com": "Hotmart",
+    "kiwify.com": "Kiwify",
+    "teachable.com": "Teachable",
+    "kajabi.com": "Kajabi",
+    "skool.com": "Skool",
+    "thinkific.com": "Thinkific",
+    "gumroad.com": "Gumroad",
 }
 
 
