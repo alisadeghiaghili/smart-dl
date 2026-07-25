@@ -199,7 +199,7 @@ def run_cli():
 
     # ─── Smart Mode ───────────────────────────────────────────────────────────
     if args.smart_mode:
-        from smart_dl.core.downloader import interactive_smart_mode, save_smart_mode, get_smart_mode
+        from smart_dl.core.downloader import get_smart_mode, interactive_smart_mode, save_smart_mode
         if args.smart_mode == "config":
             interactive_smart_mode()
             return
@@ -225,7 +225,7 @@ def run_cli():
         return
 
     if args.unsubscribe:
-        from smart_dl.core.subscriptions import remove_subscription, init_db
+        from smart_dl.core.subscriptions import init_db, remove_subscription
         init_db()
         remove_subscription(args.unsubscribe)
         print(f"Unsubscribed from ID {args.unsubscribe}.")
@@ -244,15 +244,15 @@ def run_cli():
         return
 
     if args.my_subs:
-        from smart_dl.core.subscriptions import get_subscriptions, get_subscription_stats, init_db
+        from smart_dl.core.subscriptions import get_subscription_stats, get_subscriptions, init_db
         init_db()
         subs = get_subscriptions()
         stats = get_subscription_stats()
         if not subs:
             print("No subscriptions.")
             return
-        from rich.table import Table
         from rich import box
+        from rich.table import Table
         t = Table(box=box.ROUNDED, show_header=True, border_style="cyan")
         t.add_column("#", width=5)
         t.add_column("Name", max_width=30)
@@ -316,8 +316,8 @@ def run_cli():
     out_folder.mkdir(parents=True, exist_ok=True)
 
     # ─── Process URLs ─────────────────────────────────────────────────────────
-    from smart_dl.ui import success, warn, error, info
-    from smart_dl.utils import is_youtube_url, is_podcast_url, is_aparat_url, is_playlist_url
+    from smart_dl.ui import error, info, success, warn
+    from smart_dl.utils import is_aparat_url, is_playlist_url, is_podcast_url, is_youtube_url
 
     for url in urls:
         try:
@@ -405,7 +405,7 @@ def run_cli():
 
             # ── General (any yt-dlp site) ─────────────────────────────────────
             else:
-                from smart_dl.extractors.general import download_general, detect_platform
+                from smart_dl.extractors.general import detect_platform
                 platform = detect_platform(url)
                 if platform:
                     info(f"Detected: {platform}")
@@ -432,7 +432,7 @@ def run_cli():
 
 def _handle_queue(cmds):
     """Handle queue commands."""
-    from smart_dl.core.queue import add_to_queue, get_queue, clear_queue, get_queue_stats, init_db
+    from smart_dl.core.queue import add_to_queue, clear_queue, get_queue, get_queue_stats, init_db
     init_db()
 
     if not cmds:
@@ -454,8 +454,8 @@ def _handle_queue(cmds):
         if not items:
             print("Queue is empty.")
             return
-        from rich.table import Table
         from rich import box
+        from rich.table import Table
         t = Table(box=box.ROUNDED, show_header=True, border_style="cyan")
         t.add_column("#", width=5)
         t.add_column("URL", max_width=50)

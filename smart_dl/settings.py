@@ -1,9 +1,9 @@
 """Download settings — retry count, fragment threads."""
-from rich.panel import Panel
-from rich.table import Table
-from rich.prompt import Prompt
-from rich.padding import Padding
 from rich import box
+from rich.padding import Padding
+from rich.panel import Panel
+from rich.prompt import Prompt
+from rich.table import Table
 
 from smart_dl.ui import console, success, warn
 

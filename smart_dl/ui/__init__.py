@@ -1,10 +1,6 @@
 """UI package — console, panels, progress bars."""
 from rich.console import Console
-from rich.panel import Panel
 from rich.rule import Rule
-from rich.align import Align
-from rich.text import Text
-from rich.padding import Padding
 
 console = Console(highlight=False)
 

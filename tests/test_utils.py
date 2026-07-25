@@ -1,13 +1,20 @@
 """Unit tests for SmartDL utility functions."""
-import pytest
-import sys
 import os
+import sys
 
 # Add project root to path
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 os.environ['SMARTDL_NO_DEPS'] = '1'
 
-from smart_dl.utils import fmt_size, fmt_dur, safe_filename, is_youtube_url, is_aparat_url, is_podcast_url, is_playlist_url
+from smart_dl.utils import (
+    fmt_dur,
+    fmt_size,
+    is_aparat_url,
+    is_playlist_url,
+    is_podcast_url,
+    is_youtube_url,
+    safe_filename,
+)
 
 
 class TestFmtSize:

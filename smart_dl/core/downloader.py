@@ -1,14 +1,15 @@
 """Download engine — Smart Mode, clipping, SponsorBlock, format selection."""
-import yt_dlp
 from pathlib import Path
 
-from smart_dl.ui import console, success, warn, error, info, print_section
-from smart_dl.ui.progress import stop_event, _progress_ctx, make_progress, yt_hook
-from smart_dl.core.proxy import get_current_proxy
+import yt_dlp
+
+from smart_dl.core.config import load_config, save_config
 from smart_dl.core.cookies import get_cookie_browser
+from smart_dl.core.proxy import get_current_proxy
 from smart_dl.core.retry import retry_with_backoff
 from smart_dl.settings import DL_SETTINGS
-from smart_dl.core.config import load_config, save_config
+from smart_dl.ui import console, error, success, warn
+from smart_dl.ui.progress import _progress_ctx, make_progress, stop_event, yt_hook
 
 try:
     from smart_dl.lang import t
@@ -93,10 +94,10 @@ def apply_smart_mode(ydl_opts: dict):
 
 def interactive_smart_mode():
     """Interactive menu to configure Smart Mode."""
-    from rich.panel import Panel
-    from rich.table import Table
-    from rich.prompt import Prompt
     from rich import box
+    from rich.panel import Panel
+    from rich.prompt import Prompt
+    from rich.table import Table
 
     prefs = get_smart_mode()
 
@@ -251,7 +252,6 @@ def download_with_features(url, out_folder, fmt="bestvideo+bestaudio/best",
 
     stop_event.clear()
     maxr = DL_SETTINGS["max_retries"]
-    frags = DL_SETTINGS["fragments"]
 
     opts = build_download_opts(fmt=fmt, is_audio=is_audio, **kwargs)
     opts["outtmpl"] = str(out_folder / "%(title)s [%(format_id)s].%(ext)s")

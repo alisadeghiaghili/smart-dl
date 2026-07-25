@@ -1,8 +1,8 @@
 """Retry logic with exponential backoff and error classification."""
 import time
 
-from smart_dl.ui import warn, info
-from smart_dl.ui.progress import stop_event, _no_internet_shown
+from smart_dl.ui import info, warn
+from smart_dl.ui.progress import stop_event
 
 # Network error keywords for classification
 RESET_KEYWORDS = [

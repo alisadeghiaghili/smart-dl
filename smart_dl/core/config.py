@@ -1,7 +1,8 @@
 """Configuration persistence — JSON file in APPDATA."""
 from __future__ import annotations
-import os
+
 import json
+import os
 from typing import Any
 
 _SMARTDL_CONFIG: str = os.path.join(

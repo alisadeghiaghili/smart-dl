@@ -2,7 +2,7 @@
 import sqlite3
 import time
 from pathlib import Path
-from typing import List, Optional
+from typing import List
 
 from smart_dl.core.config import load_config
 

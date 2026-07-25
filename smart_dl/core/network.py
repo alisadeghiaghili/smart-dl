@@ -1,9 +1,8 @@
 """Network error display and internet connectivity panels."""
 from rich.panel import Panel
 
-from smart_dl.ui import console, info
-from smart_dl.ui.progress import _no_internet_shown
 import smart_dl.ui.progress as _prog_mod
+from smart_dl.ui import console
 
 
 def show_no_internet_panel(host: str = "www.youtube.com"):

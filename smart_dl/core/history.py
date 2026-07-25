@@ -1,7 +1,7 @@
 """Download history with SQLite persistence."""
+import json
 import sqlite3
 import time
-import json
 from pathlib import Path
 from typing import List, Optional
 

@@ -1,5 +1,6 @@
 """Logging system — file and console logging."""
 from __future__ import annotations
+
 import logging
 import sys
 from pathlib import Path

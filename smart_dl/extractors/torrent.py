@@ -1,13 +1,13 @@
 """Torrent/magnet download support."""
 import os
-import sys
 import subprocess
 from pathlib import Path
+
 from rich.panel import Panel
 from rich.prompt import Prompt
 
-from smart_dl.ui import console, success, warn, error, info, print_section
 from smart_dl.core.proxy import get_current_proxy
+from smart_dl.ui import console, error, info, print_section, success, warn
 
 try:
     from smart_dl.lang import t

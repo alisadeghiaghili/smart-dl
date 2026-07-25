@@ -1,13 +1,14 @@
 """Proxy detection, menu, apply/clear."""
 import os
 import re
-from rich.panel import Panel
-from rich.table import Table
-from rich.prompt import Prompt
-from rich import box
 
-from smart_dl.ui import console, success, warn, info, print_section
+from rich import box
+from rich.panel import Panel
+from rich.prompt import Prompt
+from rich.table import Table
+
 from smart_dl.core.config import load_config, save_config
+from smart_dl.ui import console, info, success, warn
 
 LOCALHOST_PORTS = [
     (10809, "v2rayN / Xray / Nekoray     (HTTP)"),

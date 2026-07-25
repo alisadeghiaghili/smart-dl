@@ -1,24 +1,21 @@
 """Podcast extractor — RSS parser, direct audio, podcast handler."""
 import re
+import subprocess
 import xml.etree.ElementTree as ET
-import yt_dlp
-import requests
-from pathlib import Path
-from urllib.parse import urlparse
-from rich.panel import Panel
-from rich.table import Table
-from rich.rule import Rule
-from rich.progress import Progress, SpinnerColumn, TextColumn, BarColumn, DownloadColumn
-from rich.prompt import Prompt
-from rich import box
 
-from smart_dl.ui import console, success, warn, error, info, print_section
+import requests
+import yt_dlp
+from rich import box
+from rich.progress import BarColumn, Progress, SpinnerColumn, TextColumn
+from rich.prompt import Prompt
+from rich.table import Table
+
+from smart_dl.core.installer import has_ffmpeg
+from smart_dl.core.proxy import get_current_proxy
+from smart_dl.settings import DL_SETTINGS
+from smart_dl.ui import console, error, info, print_section, success, warn
 from smart_dl.ui.progress import stop_event
 from smart_dl.utils import fmt_size
-from smart_dl.core.proxy import get_current_proxy
-from smart_dl.core.retry import retry_with_backoff
-from smart_dl.core.installer import has_ffmpeg
-from smart_dl.settings import DL_SETTINGS
 
 try:
     from smart_dl.lang import t
@@ -154,7 +151,6 @@ def _convert_audio(raw_path, out_path, fmt_key):
 
 def download_podcast_url(url, out_folder, fmt_tuple):
     """Download a podcast audio file with retry logic."""
-    import subprocess
     stop_event.clear()
     label, fmt_key, _ = fmt_tuple
     prx = get_current_proxy()
@@ -273,7 +269,7 @@ def handle_podcast(url, out_folder):
         pass
 
     # fallback: yt-dlp
-    from smart_dl.extractors.youtube import get_yt_formats, yt_quality_menu, download_yt
+    from smart_dl.extractors.youtube import download_yt, yt_quality_menu
     try:
         ydl_opts = {"quiet":True,"no_warnings":True}
         if prx: ydl_opts["proxy"] = prx

@@ -1,6 +1,5 @@
 """Language translation system for SmartDL."""
 import os
-import json
 
 _current_lang = None
 

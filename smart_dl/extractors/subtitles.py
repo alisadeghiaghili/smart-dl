@@ -1,14 +1,13 @@
 """Subtitle support — download, search, and embed subtitles."""
-import yt_dlp
-from pathlib import Path
-from rich.panel import Panel
-from rich.table import Table
-from rich.prompt import Prompt
-from rich import box
 
-from smart_dl.ui import console, success, warn, error, info, print_section
-from smart_dl.core.proxy import get_current_proxy
+import yt_dlp
+from rich import box
+from rich.prompt import Prompt
+from rich.table import Table
+
 from smart_dl.core.cookies import get_cookie_browser
+from smart_dl.core.proxy import get_current_proxy
+from smart_dl.ui import console, error, info, print_section, success, warn
 
 try:
     from smart_dl.lang import t

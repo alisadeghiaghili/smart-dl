@@ -1,5 +1,7 @@
 """SmartDL — Resilient media downloader for unstable networks."""
-import os, sys, subprocess, time
+import subprocess
+import sys
+import time
 from importlib.util import find_spec
 
 VERSION = "3.0.0"

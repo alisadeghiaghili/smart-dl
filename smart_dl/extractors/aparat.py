@@ -1,21 +1,17 @@
 """Aparat extractor — native support for Aparat videos and playlists."""
 import re
-import json
-import requests
-import yt_dlp
-from pathlib import Path
 from urllib.parse import urlparse
-from rich.panel import Panel
-from rich.table import Table
-from rich.prompt import Prompt
-from rich import box
 
-from smart_dl.ui import console, success, warn, error, info, print_section
-from smart_dl.ui.progress import stop_event, _progress_ctx, make_progress, yt_hook
+import requests
+from rich import box
+from rich.panel import Panel
+from rich.prompt import Prompt
+from rich.rule import Rule
+from rich.table import Table
+
 from smart_dl.core.proxy import get_current_proxy
-from smart_dl.core.retry import retry_with_backoff
-from smart_dl.settings import DL_SETTINGS
-from smart_dl.utils import fmt_size, is_aparat_url
+from smart_dl.ui import console, error, info, print_section, warn
+from smart_dl.ui.progress import stop_event
 
 try:
     from smart_dl.lang import t
@@ -120,7 +116,7 @@ def download_aparat(url, out_folder):
     aparat_info = get_aparat_info(url)
 
     # Use yt-dlp for actual download (it handles Aparat)
-    from smart_dl.extractors.youtube import get_yt_formats, yt_quality_menu, download_yt
+    from smart_dl.extractors.youtube import download_yt, get_yt_formats, yt_quality_menu
 
     info_dict = get_yt_formats(url)
     if info_dict:

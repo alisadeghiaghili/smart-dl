@@ -1,14 +1,12 @@
 """Download management — list, filter, sort, export, cleanup."""
 import os
-import json
-from pathlib import Path
-from typing import List, Optional
 
-from smart_dl.core.history import get_history, get_history_stats, export_history, search_history
-from smart_dl.ui import console, success, warn, error, info
-from rich.table import Table
-from rich.panel import Panel
 from rich import box
+from rich.panel import Panel
+from rich.table import Table
+
+from smart_dl.core.history import export_history, get_history, get_history_stats, search_history
+from smart_dl.ui import console, info, success
 
 try:
     from smart_dl.lang import t
@@ -73,7 +71,7 @@ def show_stats():
     """Show download statistics."""
     stats = get_history_stats()
 
-    from smart_dl.utils import fmt_size, fmt_dur
+    from smart_dl.utils import fmt_dur, fmt_size
 
     body = (
         f"[bold cyan]Total Downloads:[/bold cyan] {stats['total_downloads']}\n"
@@ -101,7 +99,7 @@ def export_downloads(output_path: str = "downloads.json"):
 
 def cleanup_downloads(dry_run: bool = False):
     """Remove failed/incomplete downloads."""
-    from smart_dl.core.history import get_history, _get_conn
+    from smart_dl.core.history import get_history
 
     rows = get_history(status="failed", limit=10000)
     if not rows:

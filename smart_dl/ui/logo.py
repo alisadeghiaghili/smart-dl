@@ -1,9 +1,10 @@
 """ASCII logo and header/footer display."""
-import sys
 import shutil
-from rich.text import Text
+import sys
+
 from rich.align import Align
 from rich.rule import Rule
+from rich.text import Text
 
 from smart_dl import VERSION
 from smart_dl.ui import console

@@ -2,8 +2,6 @@
 import os
 from pathlib import Path
 
-from smart_dl.core.config import load_config, save_config
-
 
 def is_portable() -> bool:
     """Check if portable mode is active."""

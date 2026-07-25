@@ -1,15 +1,14 @@
 """General extractor — handles any yt-dlp-supported site."""
-import yt_dlp
 from urllib.parse import urlparse
+
+import yt_dlp
 from rich.panel import Panel
 
-from smart_dl.ui import console, success, warn, error, info, print_section
-from smart_dl.ui.progress import stop_event, _progress_ctx, make_progress, yt_hook
-from smart_dl.core.proxy import get_current_proxy
 from smart_dl.core.cookies import get_cookie_browser
-from smart_dl.core.retry import retry_with_backoff
-from smart_dl.settings import DL_SETTINGS
-from smart_dl.utils import fmt_size, fmt_dur
+from smart_dl.core.proxy import get_current_proxy
+from smart_dl.ui import console, error, info, print_section, warn
+from smart_dl.ui.progress import stop_event
+from smart_dl.utils import fmt_dur
 
 try:
     from smart_dl.lang import t
@@ -76,7 +75,7 @@ def get_general_info(url):
     try:
         with yt_dlp.YoutubeDL(ydl_opts) as ydl:
             return ydl.extract_info(url, download=False)
-    except Exception as e:
+    except Exception:
         raise
 
 
@@ -110,7 +109,7 @@ def general_quality_menu(info_dict):
 
 def download_general(url, out_folder, fmt=None, is_audio=False):
     """Download from any yt-dlp-supported site."""
-    from smart_dl.extractors.youtube import get_yt_formats, yt_quality_menu, download_yt
+    from smart_dl.extractors.youtube import download_yt, get_yt_formats, yt_quality_menu
 
     platform = detect_platform(url)
     platform_str = f" ({platform})" if platform else ""
@@ -135,7 +134,7 @@ def download_general(url, out_folder, fmt=None, is_audio=False):
 def batch_download(urls, out_folder):
     """Download multiple URLs from a list."""
     from smart_dl.extractors.youtube import download_yt, get_yt_formats, yt_quality_menu
-    from smart_dl.utils import is_youtube_url, is_aparat_url, is_podcast_url
+    from smart_dl.utils import is_aparat_url, is_podcast_url, is_youtube_url
 
     total = len(urls)
     success_list = []

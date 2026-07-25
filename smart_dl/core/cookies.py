@@ -1,13 +1,14 @@
 """Browser cookie authentication for YouTube bot detection."""
 import sys
 import webbrowser
-from rich.panel import Panel
-from rich.table import Table
-from rich.prompt import Prompt
-from rich import box
 
-from smart_dl.ui import console, success, warn, error, info, print_section
+from rich import box
+from rich.panel import Panel
+from rich.prompt import Prompt
+from rich.table import Table
+
 from smart_dl.core.config import load_config, save_config
+from smart_dl.ui import console, error, info, print_section, success, warn
 
 BROWSERS_TO_TRY = ["firefox", "edge", "chrome", "chromium", "brave"]
 

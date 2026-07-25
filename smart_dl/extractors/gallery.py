@@ -1,15 +1,13 @@
 """Image gallery extractor — Pixiv, DeviantArt, ArtStation, Flickr, Tumblr, Imgur."""
 import re
-import os
-import requests
 from pathlib import Path
 from urllib.parse import urlparse
-from rich.panel import Panel
-from rich.progress import Progress, SpinnerColumn, TextColumn, BarColumn, DownloadColumn
-from rich.prompt import Prompt
 
-from smart_dl.ui import console, success, warn, error, info, print_section
+import requests
+from rich.progress import BarColumn, DownloadColumn, Progress, SpinnerColumn, TextColumn
+
 from smart_dl.core.proxy import get_current_proxy
+from smart_dl.ui import console, error, info, print_section, success, warn
 from smart_dl.utils import safe_filename
 
 try:
@@ -67,6 +65,7 @@ def download_gallery(url: str, out_folder: Path):
     # Try yt-dlp first (it supports many gallery sites)
     try:
         import yt_dlp
+
         from smart_dl.core.proxy import get_current_proxy
 
         ydl_opts = {

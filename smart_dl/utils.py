@@ -1,5 +1,6 @@
 """Utility functions: formatting, filenames, URL detection."""
 from __future__ import annotations
+
 import re
 from typing import Optional, Union
 from urllib.parse import urlparse

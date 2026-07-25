@@ -1,10 +1,7 @@
 """Unit tests for SmartDL core modules."""
-import pytest
-import sys
 import os
+import sys
 import tempfile
-import json
-from pathlib import Path
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 os.environ['SMARTDL_NO_DEPS'] = '1'
@@ -18,8 +15,9 @@ class TestConfigPersistence:
         assert isinstance(cfg, dict)
 
     def test_save_and_load(self):
-        from smart_dl.core.config import save_config, load_config, _SMARTDL_CONFIG
         import shutil
+
+        from smart_dl.core.config import load_config, save_config
 
         # Use temp dir for testing
         temp_dir = tempfile.mkdtemp()
@@ -124,8 +122,7 @@ class TestThemes:
             assert "error" in theme, f"Theme {name} missing error"
 
     def test_set_theme(self):
-        from smart_dl.ui.themes import set_theme, get_theme, THEMES
-        original = get_theme()
+        from smart_dl.ui.themes import get_theme, set_theme
         set_theme("dracula")
         assert get_theme()["name"] == "Dracula"
         set_theme("default")
@@ -158,7 +155,7 @@ class TestQueue:
         init_db()  # Should not crash
 
     def test_add_and_get(self):
-        from smart_dl.core.queue import init_db, add_to_queue, get_queue, clear_queue
+        from smart_dl.core.queue import add_to_queue, clear_queue, get_queue, init_db
         init_db()
         clear_queue()
         count = add_to_queue(["https://example.com/test1", "https://example.com/test2"])
@@ -168,7 +165,7 @@ class TestQueue:
         clear_queue()
 
     def test_stats(self):
-        from smart_dl.core.queue import init_db, add_to_queue, get_queue_stats, clear_queue
+        from smart_dl.core.queue import add_to_queue, clear_queue, get_queue_stats, init_db
         init_db()
         clear_queue()
         add_to_queue(["https://example.com/test"])
@@ -183,7 +180,7 @@ class TestHistory:
         init_db()
 
     def test_add_and_get(self):
-        from smart_dl.core.history import init_db, add_to_history, get_history
+        from smart_dl.core.history import add_to_history, get_history, init_db
         init_db()
         hist_id = add_to_history(
             url="https://example.com/test",
@@ -195,7 +192,7 @@ class TestHistory:
         assert len(rows) >= 1
 
     def test_stats(self):
-        from smart_dl.core.history import init_db, get_history_stats
+        from smart_dl.core.history import get_history_stats, init_db
         init_db()
         stats = get_history_stats()
         assert "total_downloads" in stats

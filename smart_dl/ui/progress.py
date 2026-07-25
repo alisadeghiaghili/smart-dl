@@ -2,9 +2,16 @@
 import threading
 from pathlib import Path
 
-from rich.progress import (Progress, SpinnerColumn, BarColumn, TextColumn,
-                           DownloadColumn, TransferSpeedColumn, TimeRemainingColumn,
-                           TaskProgressColumn)
+from rich.progress import (
+    BarColumn,
+    DownloadColumn,
+    Progress,
+    SpinnerColumn,
+    TaskProgressColumn,
+    TextColumn,
+    TimeRemainingColumn,
+    TransferSpeedColumn,
+)
 
 from smart_dl.ui import console
 

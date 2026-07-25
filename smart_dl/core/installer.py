@@ -1,15 +1,17 @@
 """Dependency installer — ffmpeg, Node.js, Windows Terminal."""
 import os
-import sys
 import subprocess
+import sys
+import time
 from pathlib import Path
-from rich.panel import Panel
-from rich.table import Table
-from rich.progress import Progress, SpinnerColumn, TextColumn, BarColumn, DownloadColumn
-from rich.prompt import Prompt
-from rich import box
 
-from smart_dl.ui import console, success, warn, error, info
+from rich import box
+from rich.panel import Panel
+from rich.progress import BarColumn, DownloadColumn, Progress, SpinnerColumn, TextColumn
+from rich.prompt import Prompt
+from rich.table import Table
+
+from smart_dl.ui import console, error, info, success, warn
 
 
 def has_ffmpeg():
@@ -26,8 +28,9 @@ def has_nodejs():
 
 
 def _install_ffmpeg():
-    from smart_dl.core.proxy import get_current_proxy
     import shutil
+
+    from smart_dl.core.proxy import get_current_proxy
     info("Trying winget...")
     try:
         r = subprocess.run(
@@ -43,7 +46,8 @@ def _install_ffmpeg():
 
     info("Falling back to GitHub release...")
     try:
-        import urllib.request as _ur, zipfile
+        import urllib.request as _ur
+        import zipfile
         api = "https://api.github.com/repos/BtbN/FFmpeg-Builds/releases/latest"
         prx = get_current_proxy()
         opener = _ur.build_opener()
@@ -117,7 +121,8 @@ def _install_wt():
 
 
 def _relaunch_in_wt():
-    import shutil, tempfile
+    import shutil
+    import tempfile
     python_exe = sys.executable
     script     = os.path.abspath(__file__)
     pid        = os.getpid()
@@ -129,18 +134,18 @@ def _relaunch_in_wt():
     bat_lines = [
         "@echo off",
         f"set PATH={new_path}",
-        f":wait",
-        f"timeout /t 1 /nobreak >nul",
+        ":wait",
+        "timeout /t 1 /nobreak >nul",
         f"tasklist /fi \"PID eq {pid}\" 2>nul | find \"{pid}\" >nul 2>&1",
-        f"if not errorlevel 1 goto wait",
-        f"timeout /t 1 /nobreak >nul",
-        f"where wt >nul 2>&1",
-        f"if not errorlevel 1 (",
+        "if not errorlevel 1 goto wait",
+        "timeout /t 1 /nobreak >nul",
+        "where wt >nul 2>&1",
+        "if not errorlevel 1 (",
         f"    start \"SmartDL\" wt new-tab {py_q} {sc_q}",
-        f") else (",
+        ") else (",
         f"    start \"SmartDL\" cmd /k {py_q} {sc_q}",
-        f")",
-        f"(goto) 2>nul & del /f /q \"%~f0\"",
+        ")",
+        "(goto) 2>nul & del /f /q \"%~f0\"",
     ]
     bat_content = "\r\n".join(bat_lines)
     tf = tempfile.NamedTemporaryFile(mode="w", suffix=".bat", delete=False,

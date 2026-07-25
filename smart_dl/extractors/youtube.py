@@ -1,24 +1,24 @@
 """YouTube extractor — format fetch, quality menu, download, playlists."""
 import re
-import yt_dlp
-from pathlib import Path
 from urllib.parse import urlparse
-from rich.panel import Panel
-from rich.table import Table
-from rich.rule import Rule
-from rich.prompt import Prompt, IntPrompt
-from rich import box
 
-from smart_dl.ui import console, success, warn, error, info, print_section
-from smart_dl.ui.progress import stop_event, _progress_ctx, make_progress, yt_hook, _no_internet_shown
+import yt_dlp
+from rich import box
+from rich.panel import Panel
+from rich.prompt import IntPrompt, Prompt
+from rich.rule import Rule
+from rich.table import Table
+
 import smart_dl.ui.progress as _prog_mod
-from smart_dl.utils import fmt_size, fmt_dur, is_youtube_url, is_playlist_url
-from smart_dl.core.proxy import get_current_proxy
 from smart_dl.core.cookies import get_cookie_browser, handle_bot_detection
-from smart_dl.core.retry import retry_with_backoff, diagnose_error
-from smart_dl.core.network import show_no_internet_panel
 from smart_dl.core.installer import has_ffmpeg
+from smart_dl.core.network import show_no_internet_panel
+from smart_dl.core.proxy import get_current_proxy
+from smart_dl.core.retry import diagnose_error, retry_with_backoff
 from smart_dl.settings import DL_SETTINGS
+from smart_dl.ui import console, error, info, print_section, success, warn
+from smart_dl.ui.progress import _progress_ctx, make_progress, stop_event, yt_hook
+from smart_dl.utils import fmt_dur, fmt_size
 
 try:
     from smart_dl.lang import t
@@ -491,6 +491,7 @@ def download_thumbnail(url, out_folder, info_dict=None):
         return
 
     import requests
+
     from smart_dl.utils import safe_filename
     fname = safe_filename(title) + ".jpg"
     fpath = out_folder / fname
@@ -510,7 +511,7 @@ class _YTLogger:
     def debug(self, msg): pass
     def info(self, msg): pass
     def warning(self, msg):
-        from smart_dl.core.retry import SUPPRESS_WARNINGS, DNS_KEYWORDS, RESET_KEYWORDS
+        from smart_dl.core.retry import DNS_KEYWORDS, RESET_KEYWORDS, SUPPRESS_WARNINGS
         if any(s in msg.lower() for s in SUPPRESS_WARNINGS): return
         _ml = msg.lower()
         if any(x in _ml for x in DNS_KEYWORDS):
@@ -537,8 +538,8 @@ class _YTLogger:
             return
         warn(msg)
     def error(self, msg):
-        from smart_dl.ui.progress import stop_event
         from smart_dl.core.retry import DNS_KEYWORDS
+        from smart_dl.ui.progress import stop_event
         if not stop_event.is_set():
             _ml = msg.lower()
             if any(x in _ml for x in DNS_KEYWORDS):

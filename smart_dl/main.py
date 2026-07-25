@@ -1,32 +1,24 @@
 """Main entry point — the interactive download loop."""
-import sys
 from pathlib import Path
-from urllib.parse import urlparse
 
 from rich.panel import Panel
-from rich.rule import Rule
 from rich.prompt import Prompt
+from rich.rule import Rule
 
-from smart_dl import VERSION
-from smart_dl.ui import console, success, warn, error, info, print_section
-from smart_dl.ui.logo import print_header, bye
-from smart_dl.ui.progress import stop_event, _no_internet_shown
 import smart_dl.ui.progress as _prog_mod
-from smart_dl.utils import is_youtube_url, is_podcast_url, is_aparat_url, is_playlist_url
-from smart_dl.core.proxy import proxy_menu, proxy_step, get_current_proxy
 from smart_dl.core.cookies import cookie_settings_menu
 from smart_dl.core.installer import install_menu
-from smart_dl.core.network import show_no_internet_panel
+from smart_dl.core.proxy import proxy_menu, proxy_step
 from smart_dl.core.retry import diagnose_error
-from smart_dl.extractors.youtube import (
-    get_yt_formats, yt_quality_menu, download_yt, handle_playlist, download_thumbnail
-)
+from smart_dl.extractors.aparat import download_aparat, handle_aparat_playlist
+from smart_dl.extractors.general import detect_platform
 from smart_dl.extractors.podcast import handle_podcast
-from smart_dl.extractors.aparat import (
-    download_aparat, is_aparat_playlist, handle_aparat_playlist
-)
-from smart_dl.extractors.general import download_general, detect_platform
+from smart_dl.extractors.youtube import download_yt, get_yt_formats, handle_playlist, yt_quality_menu
 from smart_dl.settings import settings_menu
+from smart_dl.ui import console, error, info, print_section, success, warn
+from smart_dl.ui.logo import bye, print_header
+from smart_dl.ui.progress import stop_event
+from smart_dl.utils import is_aparat_url, is_playlist_url, is_podcast_url, is_youtube_url
 
 
 def _pick_output_folder():
