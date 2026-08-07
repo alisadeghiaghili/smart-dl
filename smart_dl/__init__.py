@@ -1,4 +1,5 @@
 """SmartDL — Resilient media downloader for unstable networks."""
+import os
 import subprocess
 import sys
 import time
@@ -6,8 +7,21 @@ from importlib.util import find_spec
 
 VERSION = "3.0.0"
 
+
+def _deps_skipped() -> bool:
+    """When SMARTDL_NO_DEPS is set, skip auto-install. Used by tests and CI."""
+    return bool(os.environ.get("SMARTDL_NO_DEPS"))
+
+
 def ensure_deps():
-    """Auto-install missing Python packages on first run."""
+    """Auto-install missing Python packages on first run.
+
+    Set the SMARTDL_NO_DEPS environment variable to skip auto-install
+    (useful for tests, CI, and environments where dependencies are
+    managed by other means).
+    """
+    if _deps_skipped():
+        return
     deps = {"yt_dlp": "yt-dlp", "requests": "requests", "rich": "rich"}
     missing = [(mod, pkg) for mod, pkg in deps.items() if find_spec(mod) is None]
     if not missing:
@@ -36,4 +50,6 @@ def ensure_deps():
         sys.stdout.flush()
     print("  All " + str(total) + " package(s) installed successfully.\n")
 
-ensure_deps()
+
+if not _deps_skipped():
+    ensure_deps()

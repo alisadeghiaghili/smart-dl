@@ -1,7 +1,6 @@
 """SmartDL Web GUI — Streamlit-based web interface."""
 import os
 import sys
-import json
 from pathlib import Path
 
 # Ensure we can import smart_dl
@@ -12,13 +11,13 @@ import streamlit as st
 import yt_dlp
 
 from smart_dl import VERSION
-from smart_dl.utils import fmt_size, fmt_dur, is_youtube_url, is_aparat_url, is_playlist_url
-from smart_dl.core.config import load_config, save_config
-from smart_dl.core.proxy import get_current_proxy, apply_proxy, clear_proxy
 from smart_dl.core.downloader import build_download_opts, get_smart_mode, save_smart_mode
-from smart_dl.core.queue import init_db as init_queue_db, add_to_queue, get_queue, get_queue_stats, clear_queue
-from smart_dl.core.history import init_db as init_history_db, get_history, get_history_stats
-from smart_dl.ui.themes import THEMES
+from smart_dl.core.history import get_history, get_history_stats
+from smart_dl.core.history import init_db as init_history_db
+from smart_dl.core.proxy import apply_proxy, clear_proxy, get_current_proxy
+from smart_dl.core.queue import clear_queue, get_queue, get_queue_stats
+from smart_dl.core.queue import init_db as init_queue_db
+from smart_dl.utils import fmt_dur, fmt_size, is_aparat_url, is_playlist_url, is_youtube_url
 
 # Page config
 st.set_page_config(
@@ -52,7 +51,6 @@ def do_download(url: str, out_dir: str, fmt: str, is_audio: bool = False,
                 audio_format: str = "mp3", audio_quality: str = "192",
                 embed_metadata: bool = False, embed_thumbnail: bool = False):
     """Download a URL."""
-    from smart_dl.ui.progress import stop_event, _progress_ctx, yt_hook
     from smart_dl.core.retry import retry_with_backoff
     from smart_dl.settings import DL_SETTINGS
 
@@ -285,7 +283,7 @@ with tab1:
     queue = get_queue()
     if queue:
         for item in queue:
-            status_color = {"pending": "🟡", "active": "🔵", "completed": "🟢", "completed": "🟢", "failed": "🔴"}.get(item["status"], "⚪")
+            status_color = {"pending": "🟡", "active": "🔵", "completed": "🟢", "failed": "🔴"}.get(item["status"], "⚪")
             st.write(f"{status_color} [{item['id']}] {item['url'][:60]} — {item['status']}")
     else:
         st.info("Queue is empty. Paste a URL above to add downloads.")

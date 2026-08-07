@@ -1,9 +1,11 @@
 """CLI interface — argparse for non-interactive mode."""
 import argparse
+import os
 import sys
 from pathlib import Path
 
 from smart_dl import VERSION
+from smart_dl.extractors.torrent import is_magnet_link, is_torrent_file
 
 
 def build_parser():
@@ -159,6 +161,9 @@ def build_parser():
 
     parser.add_argument("--version", action="version", version=f"SmartDL v{VERSION}")
 
+    parser.add_argument("--diagnose", action="store_true",
+                        help="Print environment diagnostics (versions, proxy, paths) and exit")
+
     # Fix conflicting --list-subs
     parser.set_defaults(list_subs=False)
 
@@ -179,6 +184,10 @@ def run_cli():
         from smart_dl.ui.themes import list_themes
         for key, name in list_themes():
             print(f"  {key:20s} {name}")
+        return
+
+    if args.diagnose:
+        _print_diagnostics()
         return
 
     # ─── Language ─────────────────────────────────────────────────────────────
@@ -430,6 +439,112 @@ def run_cli():
     success("All done!")
 
 
+def _tool_version(tool: str) -> str:
+    """Return the version string of `tool` if it's on PATH, else "not found"."""
+    import shutil
+    import subprocess
+    path = shutil.which(tool)
+    if not path:
+        return "not found"
+    try:
+        out = subprocess.run(
+            [tool, "--version"], capture_output=True, text=True, timeout=5
+        )
+        first = (out.stdout or out.stderr).strip().splitlines()
+        # Take only the first non-empty line to keep output compact
+        for line in first:
+            line = line.strip()
+            if line:
+                return line[:120]
+        return "?"
+    except Exception as e:
+        return f"error: {e!r}"
+
+
+def _pip_show(pkg: str) -> str:
+    """Return `pip show pkg` Version line, or "not installed"."""
+    import subprocess
+    try:
+        out = subprocess.run(
+            [sys.executable, "-m", "pip", "show", pkg],
+            capture_output=True, text=True, timeout=10
+        )
+    except Exception as e:
+        return f"error: {e!r}"
+    if out.returncode != 0:
+        return "not installed"
+    for line in out.stdout.splitlines():
+        if line.startswith("Version:"):
+            return line.split(":", 1)[1].strip()
+    return "installed (no Version line)"
+
+
+def _print_diagnostics() -> None:
+    """Print a single diagnostic block: versions, proxy state, paths.
+
+    Lets the user self-diagnose download issues in seconds without
+    digging through toolchain versions manually.
+    """
+    from smart_dl.core.portable import get_data_dir, is_portable
+    from smart_dl.core.proxy import peek_current_proxy
+
+    lines: list[str] = []
+    lines.append(f"  [bold cyan]SmartDL v{VERSION}[/bold cyan]  —  diagnostics")
+    lines.append("")
+    lines.append(f"  Python      : {sys.version.split()[0]}")
+    lines.append(f"  Python exe  : {sys.executable}")
+    lines.append(f"  Platform    : {sys.platform}")
+    lines.append("")
+    lines.append("  --- Python packages ---")
+    lines.append(f"  yt-dlp      : {_pip_show('yt-dlp')}")
+    lines.append(f"  rich        : {_pip_show('rich')}")
+    lines.append(f"  requests    : {_pip_show('requests')}")
+    lines.append("")
+    lines.append("  --- External tools ---")
+    lines.append(f"  ffmpeg      : {_tool_version('ffmpeg')}")
+    lines.append(f"  node        : {_tool_version('node')}")
+    lines.append(f"  aria2c      : {_tool_version('aria2c')}")
+    lines.append(f"  winget      : {_tool_version('winget')}")
+    lines.append("")
+    lines.append("  --- Proxy state ---")
+    proxy = peek_current_proxy()
+    lines.append(f"  Active      : {proxy if proxy else '[dim]none[/dim]'}")
+    # Show each proxy env var that is set
+    env_proxies = [
+        (k, os.environ.get(k, "")) for k in (
+            "HTTP_PROXY", "HTTPS_PROXY", "http_proxy", "https_proxy",
+            "ALL_PROXY", "all_proxy",
+            "SOCKS5_PROXY", "socks5_proxy", "SOCKS_PROXY", "socks_proxy",
+        ) if os.environ.get(k)
+    ]
+    if env_proxies:
+        lines.append("  Env vars    :")
+        for k, v in env_proxies:
+            lines.append(f"    {k} = {v}")
+    else:
+        lines.append("  Env vars    : [dim]none[/dim]")
+    lines.append("")
+    lines.append("  --- Paths ---")
+    lines.append(f"  Portable    : {is_portable()}")
+    lines.append(f"  Data dir    : {get_data_dir()}")
+    lines.append(f"  Config      : {get_data_dir() / 'config.json'}")
+    lines.append("")
+    lines.append("  --- Network test ---")
+    try:
+        import requests
+        r = requests.head("https://www.youtube.com", timeout=5, allow_redirects=True)
+        lines.append(f"  youtube.com : HTTP {r.status_code} (OK)")
+    except Exception as e:
+        lines.append(f"  youtube.com : FAILED ({type(e).__name__}: {str(e)[:80]})")
+
+    from rich.console import Console
+    from rich.panel import Panel
+    c = Console()
+    c.print()
+    c.print(Panel("\n".join(lines), title="[bold cyan]SmartDL Diagnostics[/bold cyan]",
+                   border_style="cyan", padding=(0, 2)))
+
+
 def _handle_queue(cmds):
     """Handle queue commands."""
     from smart_dl.core.queue import add_to_queue, clear_queue, get_queue, get_queue_stats, init_db
@@ -521,13 +636,6 @@ def _handle_history(cmds):
         from smart_dl.ui import info as ui_info
         ui_info(f"Re-downloading: {entry['title']}")
         download_yt(entry["url"], Path.home() / "Downloads" / "SmartDL", "bestvideo+bestaudio/best")
-
-
-def is_magnet_link(url: str) -> bool:
-    return url.startswith("magnet:?xt=")
-
-def is_torrent_file(path: str) -> bool:
-    return path.lower().endswith(".torrent") and __import__("os").path.isfile(path)
 
 
 if __name__ == "__main__":

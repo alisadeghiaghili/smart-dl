@@ -1,17 +1,16 @@
 """Network error display and internet connectivity panels."""
 from rich.panel import Panel
 
-import smart_dl.ui.progress as _prog_mod
 from smart_dl.ui import console
+from smart_dl.ui.progress import mark_no_internet
 
 
 def show_no_internet_panel(host: str = "www.youtube.com"):
-    """Show a one-time panel explaining the connection error."""
-    if _prog_mod._no_internet_shown:
+    """Show a one-time-per-host panel explaining the connection error."""
+    if not mark_no_internet(host):
         return
-    _prog_mod._no_internet_shown = True
-    from smart_dl.core.proxy import get_current_proxy
-    prx = get_current_proxy()
+    from smart_dl.core.proxy import peek_current_proxy
+    prx = peek_current_proxy()
     prx_hint = (
         "\n\n [dim]Active proxy: [cyan]" + prx + "[/cyan]\n"
         " If your proxy is off, press [bold]P[/bold] to clear it.[/dim]"

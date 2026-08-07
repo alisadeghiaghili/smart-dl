@@ -1,13 +1,15 @@
 """Persian platform extractors — Filimo, Namasha, Radio Javan, and more."""
 from __future__ import annotations
-import re
-import requests
-from pathlib import Path
-from urllib.parse import urlparse
-from typing import Optional, Dict
 
-from smart_dl.ui import console, success, warn, error, info, print_section
+import re
+from pathlib import Path
+from typing import Dict, Optional
+from urllib.parse import urlparse
+
+import requests
+
 from smart_dl.core.proxy import get_current_proxy
+from smart_dl.ui import error, info, print_section, success, warn
 
 try:
     from smart_dl.lang import t
@@ -66,7 +68,7 @@ def download_filimo(url: str, out_folder: Path):
         info(f"Title: {info_dict.get('title', '?')}")
 
     # Try yt-dlp (Filimo may be supported)
-    from smart_dl.extractors.youtube import get_yt_formats, yt_quality_menu, download_yt
+    from smart_dl.extractors.youtube import download_yt, get_yt_formats, yt_quality_menu
 
     vid_info = get_yt_formats(url)
     if vid_info:
@@ -120,7 +122,7 @@ def download_namasha(url: str, out_folder: Path):
     if info_dict:
         info(f"Title: {info_dict.get('title', '?')}")
 
-    from smart_dl.extractors.youtube import get_yt_formats, yt_quality_menu, download_yt
+    from smart_dl.extractors.youtube import download_yt, get_yt_formats, yt_quality_menu
 
     vid_info = get_yt_formats(url)
     if vid_info:
@@ -189,16 +191,17 @@ def download_radiojavan(url: str, out_folder: Path):
                 proxies = {"http": prx, "https": prx} if prx else None
                 resp = requests.get(mp3_url, proxies=proxies, stream=True, timeout=30)
                 resp.raise_for_status()
+                fpath.parent.mkdir(parents=True, exist_ok=True)
+                import shutil as _shutil
                 with open(fpath, "wb") as f:
-                    for chunk in resp.iter_content(8192):
-                        f.write(chunk)
+                    _shutil.copyfileobj(resp.raw, f, length=64 * 1024)
                 success(f"Downloaded: {fname}")
                 return
             except Exception as e:
                 warn(f"Direct download failed: {str(e)[:100]}")
 
     # Fallback to yt-dlp
-    from smart_dl.extractors.youtube import get_yt_formats, yt_quality_menu, download_yt
+    from smart_dl.extractors.youtube import download_yt, get_yt_formats, yt_quality_menu
 
     vid_info = get_yt_formats(url)
     if vid_info:

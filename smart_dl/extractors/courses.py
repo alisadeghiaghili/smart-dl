@@ -1,15 +1,15 @@
 """Online course extractor — Udemy, Hotmart, Kiwify, Teachable, and more."""
 from __future__ import annotations
-import re
-import json
-import requests
-from pathlib import Path
-from urllib.parse import urlparse, parse_qs
-from typing import Optional, List, Dict
 
-from smart_dl.ui import console, success, warn, error, info, print_section
+import re
+from pathlib import Path
+from typing import Dict, Optional
+from urllib.parse import urlparse
+
+import requests
+
 from smart_dl.core.proxy import get_current_proxy
-from smart_dl.core.cookies import get_cookie_browser
+from smart_dl.ui import console, error, info, print_section, warn
 
 try:
     from smart_dl.lang import t
@@ -219,7 +219,7 @@ def download_course(url: str, out_folder: Path):
         warn("Could not extract course info. Trying yt-dlp...")
 
     # Try yt-dlp for actual download
-    from smart_dl.extractors.youtube import get_yt_formats, yt_quality_menu, download_yt
+    from smart_dl.extractors.youtube import download_yt, get_yt_formats, yt_quality_menu
 
     vid_info = get_yt_formats(url)
     if vid_info:

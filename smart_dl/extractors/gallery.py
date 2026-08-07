@@ -4,10 +4,9 @@ from pathlib import Path
 from urllib.parse import urlparse
 
 import requests
-from rich.progress import BarColumn, DownloadColumn, Progress, SpinnerColumn, TextColumn
 
 from smart_dl.core.proxy import get_current_proxy
-from smart_dl.ui import console, error, info, print_section, success, warn
+from smart_dl.ui import error, info, print_section, success, warn
 from smart_dl.utils import safe_filename
 
 try:
@@ -98,6 +97,8 @@ def download_gallery(url: str, out_folder: Path):
 
 def _download_images_direct(url: str, out_folder: Path):
     """Fallback: download images directly from the page."""
+    from smart_dl.core.parallel import parallel_downloads
+    from smart_dl.ui.progress import stop_event
     prx = get_current_proxy()
     proxies = {"http": prx, "https": prx} if prx else None
 
@@ -127,32 +128,20 @@ def _download_images_direct(url: str, out_folder: Path):
 
     info(f"Found {len(img_urls)} images")
 
-    # Download
+    # Build (url, dest) pairs
     out_folder.mkdir(parents=True, exist_ok=True)
-    downloaded = 0
+    items: list[tuple[str, Path]] = []
+    for i, img_url in enumerate(img_urls, 1):
+        fname = safe_filename(urlparse(img_url).path.split('/')[-1] or f"image_{i}")
+        if not any(fname.lower().endswith(ext) for ext in ['.jpg', '.jpeg', '.png', '.gif', '.webp']):
+            fname += ".jpg"
+        items.append((img_url, out_folder / fname))
 
-    with Progress(SpinnerColumn(spinner_name="dots"), TextColumn("{task.description}"),
-                  BarColumn(), DownloadColumn(), console=console) as prog:
-        task = prog.add_task("Downloading images", total=len(img_urls))
-
-        for i, img_url in enumerate(img_urls, 1):
-            try:
-                fname = safe_filename(urlparse(img_url).path.split('/')[-1] or f"image_{i}")
-                if not any(fname.lower().endswith(ext) for ext in ['.jpg', '.jpeg', '.png', '.gif', '.webp']):
-                    fname += ".jpg"
-                fpath = out_folder / fname
-
-                resp = requests.get(img_url, timeout=15, proxies=proxies, stream=True,
-                                  headers={"User-Agent": "Mozilla/5.0", "Referer": url})
-                resp.raise_for_status()
-
-                with open(fpath, "wb") as f:
-                    for chunk in resp.iter_content(8192):
-                        f.write(chunk)
-
-                downloaded += 1
-                prog.advance(task)
-            except Exception:
-                continue
+    # Parallel download — uses shutil.copyfileobj per worker, much faster
+    # than the old single-threaded chunked loop.
+    results = parallel_downloads(
+        items, proxy=prx, max_workers=4, cancel=stop_event
+    )
+    downloaded = sum(1 for r in results if r is not None)
 
     success(f"Downloaded {downloaded}/{len(img_urls)} images to {out_folder}")

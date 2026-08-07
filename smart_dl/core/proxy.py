@@ -1,6 +1,7 @@
 """Proxy detection, menu, apply/clear."""
 import os
 import re
+from urllib.parse import urlparse
 
 from rich import box
 from rich.panel import Panel
@@ -21,60 +22,156 @@ LOCALHOST_PORTS = [
     (8080,  "Generic HTTP"),
 ]
 
+_PROXY_ENV_VARS = (
+    "HTTPS_PROXY", "https_proxy",
+    "HTTP_PROXY",  "http_proxy",
+    "ALL_PROXY",   "all_proxy",
+    "SOCKS5_PROXY", "socks5_proxy",
+    "SOCKS_PROXY",  "socks_proxy",
+    "SOCKS4_PROXY", "socks4_proxy",
+)
 
-def get_current_proxy():
-    """Detect proxy from env vars, config, or Windows registry."""
-    # 1. env vars
-    env = (
-        os.environ.get("HTTPS_PROXY") or
-        os.environ.get("HTTP_PROXY") or
-        os.environ.get("https_proxy") or
-        os.environ.get("http_proxy") or
-        ""
-    )
-    if env:
-        return env
+_SOCKS5_HINT_PORTS = {10808, 1080, 9050, 9150}
 
-    # 2. saved config
-    cfg_proxy = load_config().get("proxy", "")
-    if cfg_proxy:
-        apply_proxy(cfg_proxy)
-        return cfg_proxy
 
-    # 3. Windows system proxy (registry)
+def _is_socks_port(addr: str) -> bool:
+    m = re.search(r':(\d+)$', addr)
+    if not m:
+        return False
+    try:
+        return int(m.group(1)) in _SOCKS5_HINT_PORTS
+    except ValueError:
+        return False
+
+
+def _peek_env_proxy() -> str:
+    """Read proxy from environment variables only. No side effects."""
+    for var in _PROXY_ENV_VARS:
+        v = os.environ.get(var, "").strip()
+        if v:
+            return v
+    return ""
+
+
+def _peek_registry_proxy() -> str:
+    """Read proxy from Windows registry. Returns "" if unavailable or invalid.
+
+    Handles the three shapes Windows uses:
+      - host:port
+      - http=host:port;https=host:port
+      - socks=host:port;http=host:port;https=host:port (v2rayN/Hiddify/Nekoray)
+    Prefers SOCKS when present (Iranian proxy clients), falls back to https/http.
+    """
     try:
         import winreg as _wr
+    except ImportError:
+        return ""
+
+    try:
         key = _wr.OpenKey(_wr.HKEY_CURRENT_USER,
             r"Software\Microsoft\Windows\CurrentVersion\Internet Settings")
         enabled, _ = _wr.QueryValueEx(key, "ProxyEnable")
-        if enabled:
-            server, _ = _wr.QueryValueEx(key, "ProxyServer")
-            if server:
-                if "=" in server:
-                    parts = dict(p.split("=",1) for p in server.split(";") if "=" in p)
-                    server = parts.get("https") or parts.get("http") or server
-                if not server.startswith("http"):
-                    server = "http://" + server
-                apply_proxy(server)
-                return server
-    except Exception:
-        pass
+        if not enabled:
+            return ""
+        server, _ = _wr.QueryValueEx(key, "ProxyServer")
+    except (OSError, FileNotFoundError):
+        return ""
+
+    if not server:
+        return ""
+
+    if "=" not in server:
+        if _is_socks_port(server):
+            return f"socks5://{server}"
+        return f"http://{server}"
+
+    parts: dict[str, str] = {}
+    for segment in server.split(";"):
+        if "=" in segment:
+            k, v = segment.split("=", 1)
+            parts[k.strip().lower()] = v.strip()
+
+    socks = parts.get("socks") or parts.get("socks5")
+    if socks:
+        return f"socks5://{socks}"
+
+    https_p = parts.get("https")
+    if https_p:
+        return f"http://{https_p}"
+
+    http_p = parts.get("http")
+    if http_p:
+        return f"http://{http_p}"
 
     return ""
 
 
-def apply_proxy(addr):
-    """Set proxy in env vars and persist to config."""
+def peek_current_proxy() -> str:
+    """Read the currently active proxy from env / config / registry. Read-only.
+
+    Order: env vars → saved config → Windows registry. Does NOT mutate config
+    or env vars. Returns "" if no proxy is set anywhere.
+    """
+    env = _peek_env_proxy()
+    if env:
+        return env
+
+    cfg_proxy = load_config().get("proxy", "").strip()
+    if cfg_proxy:
+        return cfg_proxy
+
+    reg = _peek_registry_proxy()
+    return reg
+
+
+def get_current_proxy() -> str:
+    """Backwards-compatible read of the current proxy.
+
+    Same as peek_current_proxy() — kept as an alias for existing callers.
+    """
+    return peek_current_proxy()
+
+
+def _looks_like_proxy_url(addr: str) -> bool:
+    """Return True if addr parses as a URL with host + port."""
+    if not addr:
+        return False
+    try:
+        parsed = urlparse(addr)
+    except ValueError:
+        return False
+    if parsed.scheme not in ("http", "https", "socks4", "socks5", "socks"):
+        return False
+    if not parsed.hostname:
+        return False
+    if parsed.port is None:
+        return False
+    return True
+
+
+def apply_proxy(addr: str) -> bool:
+    """Set proxy in env vars and persist to config.
+
+    Returns True on success, False if `addr` does not look like a valid proxy URL.
+    Rejects malformed input so a bad registry parse can't poison config.json.
+    """
+    addr = (addr or "").strip()
+    if not addr:
+        return False
+    if not _looks_like_proxy_url(addr):
+        warn("Not a valid proxy URL: " + addr)
+        return False
     os.environ["HTTP_PROXY"]  = addr
     os.environ["HTTPS_PROXY"] = addr
     cfg = load_config()
     cfg["proxy"] = addr
     save_config(cfg)
+    return True
 
 
 def clear_proxy():
     """Remove proxy from env vars and config."""
-    for k in ["HTTP_PROXY","HTTPS_PROXY","http_proxy","https_proxy"]:
+    for k in _PROXY_ENV_VARS:
         os.environ.pop(k, None)
     cfg = load_config()
     cfg["proxy"] = ""
@@ -83,13 +180,18 @@ def clear_proxy():
 
 def hint_proxy_port(addr):
     """Warn if port suggests wrong protocol (e.g. SOCKS5 port with HTTP)."""
+    if not addr:
+        return
     m = re.search(r':(\d+)$', addr)
-    if not m: return
-    port = int(m.group(1))
-    hints = {10808: "SOCKS5", 1080: "SOCKS5", 9050: "SOCKS5", 9150: "SOCKS5"}
-    if port in hints:
-        warn("Port " + str(port) + " is typically used for " + hints[port] + ", not HTTP.")
-        info("If the connection fails, try: socks5://" + addr.split("://",1)[-1])
+    if not m:
+        return
+    try:
+        port = int(m.group(1))
+    except ValueError:
+        return
+    if port in _SOCKS5_HINT_PORTS:
+        warn("Port " + str(port) + " is typically used for SOCKS5, not HTTP.")
+        info("If the connection fails, try: socks5://" + addr.split("://", 1)[-1])
 
 
 def proxy_menu():

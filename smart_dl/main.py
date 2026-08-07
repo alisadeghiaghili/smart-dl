@@ -11,6 +11,7 @@ from smart_dl.core.installer import install_menu
 from smart_dl.core.proxy import proxy_menu, proxy_step
 from smart_dl.core.retry import diagnose_error
 from smart_dl.extractors.aparat import download_aparat, handle_aparat_playlist
+from smart_dl.extractors.courses import download_course, is_course_url
 from smart_dl.extractors.general import detect_platform
 from smart_dl.extractors.podcast import handle_podcast
 from smart_dl.extractors.youtube import download_yt, get_yt_formats, handle_playlist, yt_quality_menu
@@ -72,7 +73,7 @@ def main():
 
     while True:
         stop_event.clear()
-        _prog_mod._no_internet_shown = False
+        _prog_mod.reset_no_internet("")
         console.print()
         console.print(Rule(style="dim"))
         console.print()
@@ -132,7 +133,7 @@ def main():
 
             else:
                 # Check for Persian platforms
-                from smart_dl.extractors.persian import is_persian_platform, download_persian_platform
+                from smart_dl.extractors.persian import download_persian_platform, is_persian_platform
                 if is_persian_platform(url):
                     download_persian_platform(url, out_folder)
                 # Check for course platforms
@@ -149,18 +150,22 @@ def main():
                         fmt, is_audio = yt_quality_menu(vid_info)
                         if fmt is not None:
                             download_yt(url, out_folder, fmt, is_audio)
-                    elif vid_info is None and not _prog_mod._no_internet_shown:
-                        try:
-                            import requests
-                            ct = ""
-                            resp = requests.head(url, timeout=10, allow_redirects=True)
-                            ct = resp.headers.get("Content-Type", "")
-                        except Exception:
-                            pass
-                        if is_podcast_url(url, ct=ct):
-                            handle_podcast(url, out_folder)
-                        else:
-                            error("Cannot handle this URL \u2014 yt-dlp could not extract any media.")
+                    elif vid_info is None:
+                        from urllib.parse import urlparse
+                        host = urlparse(url).netloc or url
+                        already = host in _prog_mod._no_internet_hosts
+                        if not already:
+                            try:
+                                import requests
+                                ct = ""
+                                resp = requests.head(url, timeout=10, allow_redirects=True)
+                                ct = resp.headers.get("Content-Type", "")
+                            except Exception:
+                                pass
+                            if is_podcast_url(url, ct=ct):
+                                handle_podcast(url, out_folder)
+                            else:
+                                error("Cannot handle this URL \u2014 yt-dlp could not extract any media.")
         except KeyboardInterrupt:
             warn("Interrupted.")
         except Exception as e:

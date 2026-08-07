@@ -17,9 +17,33 @@ from smart_dl.ui import console
 
 # Module-level state shared between yt-dlp hook and progress context
 stop_event = threading.Event()
-_no_internet_shown = False
+
+# Track per-host whether the "no internet" panel has been shown in this session.
+# Stored as a set so different hosts (e.g. youtube.com vs aparat.com) each get
+# one panel — not all-or-nothing.
+_no_internet_hosts: set[str] = set()
 
 _progress_ctx: dict = {"obj": None, "task": None, "last": 0}
+
+
+def mark_no_internet(host: str) -> bool:
+    """Mark a host as having shown the 'no internet' panel.
+    Returns True if this is the first time (caller should show the panel),
+    False if it was already shown."""
+    if not host:
+        return False
+    if host in _no_internet_hosts:
+        return False
+    _no_internet_hosts.add(host)
+    return True
+
+
+def reset_no_internet(host: str = "") -> None:
+    """Reset the 'no internet' marker for one host, or for all hosts if empty."""
+    if host:
+        _no_internet_hosts.discard(host)
+    else:
+        _no_internet_hosts.clear()
 
 
 def yt_hook(d):

@@ -9,7 +9,6 @@ from rich.prompt import IntPrompt, Prompt
 from rich.rule import Rule
 from rich.table import Table
 
-import smart_dl.ui.progress as _prog_mod
 from smart_dl.core.cookies import get_cookie_browser, handle_bot_detection
 from smart_dl.core.installer import has_ffmpeg
 from smart_dl.core.network import show_no_internet_panel
@@ -29,7 +28,10 @@ except ImportError:
 
 def get_yt_formats(url):
     """Fetch YouTube video format information."""
-    _prog_mod._no_internet_shown = False
+    from urllib.parse import urlparse
+
+    from smart_dl.ui.progress import reset_no_internet
+    reset_no_internet(urlparse(url).netloc or url)
     ydl_opts = {"quiet": True, "no_warnings": True, "listformats": False,
                 "noplaylist": True, "logger": _YTLogger()}
     prx = get_current_proxy()
@@ -416,19 +418,20 @@ def download_yt(url, out_folder, fmt, is_audio=False):
         with yt_dlp.YoutubeDL(opts) as ydl:
             ydl.download([url])
 
-    with make_progress() as prog:
-        _progress_ctx["last"] = 0
-        _progress_ctx["task"] = prog.add_task("[cyan]Downloading...[/cyan]", total=None)
-        _progress_ctx["obj"]  = prog
+    def _attempt_download() -> bool:
+        """Run the download with the current progress context.
+        Returns True on success. Caller decides whether to retry or surface errors."""
         try:
             retry_with_backoff(_do_download, max_retries=maxr)
+            return True
         except KeyboardInterrupt:
             warn("Stopped by user.")
-            return
+            return False
         except Exception as e:
-            if stop_event.is_set(): return
+            if stop_event.is_set():
+                return False
             err_s = str(e)
-            prx2  = get_current_proxy()
+            prx2 = get_current_proxy()
             if prx2 and ("Unable to connect to proxy" in err_s or "10061" in err_s):
                 warn("Proxy unreachable: " + prx2)
                 ans = Prompt.ask(
@@ -439,25 +442,30 @@ def download_yt(url, out_folder, fmt, is_audio=False):
                     clear_proxy()
                     opts.pop("proxy", None)
                     try:
-                        with make_progress() as prog2:
-                            _progress_ctx["last"] = 0
-                            _progress_ctx["task"] = prog2.add_task("[cyan]Downloading...[/cyan]", total=None)
-                            _progress_ctx["obj"]  = prog2
-                            retry_with_backoff(_do_download, max_retries=maxr)
-                        success("Download complete!  \u2192  " + str(out_folder))
-                        return
+                        retry_with_backoff(_do_download, max_retries=maxr)
+                        return True
                     except Exception as e2:
                         error(str(e2)[:200])
                         hint = diagnose_error(e2)
-                        if hint: info(hint)
-                        return
+                        if hint:
+                            info(hint)
+                        return False
+                return False
             error(str(e)[:200])
             hint = diagnose_error(e)
-            if hint: info(hint)
-            return
+            if hint:
+                info(hint)
+            return False
+
+    with make_progress() as prog:
+        _progress_ctx["last"] = 0
+        _progress_ctx["task"] = prog.add_task("[cyan]Downloading...[/cyan]", total=None)
+        _progress_ctx["obj"] = prog
+        try:
+            _attempt_download()
         finally:
             _progress_ctx["task"] = None
-            _progress_ctx["obj"]  = None
+            _progress_ctx["obj"] = None
 
     success("Download complete!  \u2192  " + str(out_folder))
 
@@ -496,11 +504,20 @@ def download_thumbnail(url, out_folder, info_dict=None):
     fname = safe_filename(title) + ".jpg"
     fpath = out_folder / fname
     try:
-        resp = requests.get(thumb_url, timeout=15, stream=True)
+        import requests
+
+        prx = get_current_proxy()
+        proxies = {"http": prx, "https": prx} if prx else None
+        session = requests.Session()
+        if proxies:
+            session.proxies = proxies
+        resp = session.get(thumb_url, timeout=15, stream=True)
         resp.raise_for_status()
+        fpath.parent.mkdir(parents=True, exist_ok=True)
+        # Direct copyfileobj — bypasses Python per-chunk overhead
+        import shutil as _shutil
         with open(fpath, "wb") as f:
-            for chunk in resp.iter_content(8192):
-                f.write(chunk)
+            _shutil.copyfileobj(resp.raw, f, length=64 * 1024)
         success("Thumbnail saved: " + str(fpath))
     except Exception as e:
         error("Failed to download thumbnail: " + str(e)[:100])
