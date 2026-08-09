@@ -67,7 +67,18 @@ class TestPeekEnvProxy:
         assert _peek_env_proxy() == "http://127.0.0.1:8443"
 
 
+
+import pytest
+
+try:
+    import winreg
+    has_winreg = True
+except ImportError:
+    has_winreg = False
+
+@pytest.mark.skipif(not has_winreg, reason="winreg is only available on Windows")
 class TestPeekRegistryProxy:
+
     """Windows registry parse — three input shapes."""
 
     def test_disabled_returns_empty(self):
