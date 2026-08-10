@@ -13,43 +13,32 @@ import pytest
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 os.environ["SMARTDL_NO_DEPS"] = "1"
 
+_PROXY_ENV_VARS = (
+    "HTTPS_PROXY",
+    "https_proxy",
+    "HTTP_PROXY",
+    "http_proxy",
+    "ALL_PROXY",
+    "all_proxy",
+    "SOCKS5_PROXY",
+    "socks5_proxy",
+    "SOCKS_PROXY",
+    "socks_proxy",
+    "SOCKS4_PROXY",
+    "socks4_proxy",
+)
+
 
 class TestPeekEnvProxy:
     """env var lookup — no side effects."""
 
     def setup_method(self):
-        for k in (
-            "HTTPS_PROXY",
-            "https_proxy",
-            "HTTP_PROXY",
-            "http_proxy",
-            "ALL_PROXY",
-            "all_proxy",
-            "SOCKS5_PROXY",
-            "socks5_proxy",
-            "SOCKS_PROXY",
-            "socksproxy",
-            "SOCKS4_PROXY",
-            "socks4_proxy",
-        ):
-            os.environ.pop(k, None)
+        for key in _PROXY_ENV_VARS:
+            os.environ.pop(key, None)
 
     def teardown_method(self):
-        for k in (
-            "HTTPS_PROXY",
-            "https_proxy",
-            "HTTP_PROXY",
-            "http_proxy",
-            "ALL_PROXY",
-            "all_proxy",
-            "SOCKS5_PROXY",
-            "socks5proxy",
-            "SOCKS_PROXY",
-            "socksproxy",
-            "SOCKS4_PROXY",
-            "socks4_proxy",
-        ):
-            os.environ.pop(k, None)
+        for key in _PROXY_ENV_VARS:
+            os.environ.pop(key, None)
 
     def test_returns_empty_when_no_env_vars_set(self):
         from smart_dl.core.proxy import _peek_env_proxy
@@ -125,7 +114,7 @@ class TestPeekRegistryProxy:
         ):
             assert _peek_registry_proxy() == "socks5://127.0.0.1:10808"
 
-    def test_httpskey_wins_in_protocol_specific(self):
+    def test_https_key_wins_in_protocol_specific(self):
         from smart_dl.core.proxy import _peek_registry_proxy
 
         with patch("winreg.OpenKey"), patch(
@@ -175,41 +164,15 @@ class TestApplyProxyValidation:
         tmp = Path(tempfile.gettempdir()) / "test_proxy_config.json"
         tmp.parent.mkdir(parents=True, exist_ok=True)
         config_mod._SMARTDL_CONFIG = str(tmp)
-        for k in (
-            "HTTP_PROXY",
-            "HTTPS_PROXY",
-            "http_proxy",
-            "https_proxy",
-            "ALL_PROXY",
-            "all_proxy",
-            "SOCKS5_PROXY",
-            "socks5_proxy",
-            "SOCKS_PROXY",
-            "socksproxy",
-            "SOCKS4_PROXY",
-            "socks4_proxy",
-        ):
-            os.environ.pop(k, None)
+        for key in _PROXY_ENV_VARS:
+            os.environ.pop(key, None)
 
     def teardown_method(self):
         import smart_dl.core.config as config_mod
 
         config_mod._SMARTDL_CONFIG = self._orig
-        for k in (
-            "HTTP_PROXY",
-            "HTTPS_PROXY",
-            "http_proxy",
-            "httpsproxy",
-            "ALL_PROXY",
-            "allproxy",
-            "SOCKS5_PROXY",
-            "socks5proxy",
-            "SOCKS_PROXY",
-            "socksproxy",
-            "SOCKS4_PROXY",
-            "socks4proxy",
-        ):
-            os.environ.pop(k, None)
+        for key in _PROXY_ENV_VARS:
+            os.environ.pop(key, None)
         try:
             Path(self._orig).unlink(missing_ok=True)
         except Exception:
