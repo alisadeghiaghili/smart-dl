@@ -83,11 +83,11 @@ with st.sidebar:
 
     # Settings
     st.subheader("⚙️ Settings")
-    out_dir = st.text_input("Output Directory", str(Path.home() / "Downloads" / "SmartDL"))
+    out_dir = st.text_input("Output Directory", str(Path.home() / "Downloads" / "SmartDL"), help="The folder where all your downloaded media will be saved.")
 
     # Proxy
     proxy = get_current_proxy()
-    proxy_input = st.text_input("Proxy", proxy or "", placeholder="socks5://127.0.0.1:10808")
+    proxy_input = st.text_input("Proxy", proxy or "", placeholder="socks5://127.0.0.1:10808", help="Use this if YouTube or other sites are blocked. E.g., http://127.0.0.1:8080 or socks5://127.0.0.1:10808")
     if proxy_input and proxy_input != proxy:
         apply_proxy(proxy_input)
         st.success("Proxy set!")
@@ -96,12 +96,12 @@ with st.sidebar:
 
     # Smart Mode
     smart = get_smart_mode()
-    smart_enabled = st.toggle("Smart Mode", smart.get("enabled", False))
+    smart_enabled = st.toggle("Smart Mode", smart.get("enabled", False), help="Enable to automatically apply your favorite settings (quality, format, etc.) to all future downloads without asking.")
     if smart_enabled != smart.get("enabled"):
         smart["enabled"] = smart_enabled
         save_smart_mode(smart)
 
-    st.mark("---")
+    st.markdown("---")
 
     # Queue stats
     stats = get_queue_stats()
@@ -167,7 +167,7 @@ if "info" in st.session_state:
             best = max(thumbs, key=lambda t: (t.get("width", 0) * t.get("height", 0)))
             st.image(best.get("url", ""), use_container_width=True)
 
-    st.mark("---")
+    st.markdown("---")
 
     # Format selection
     fmts = info.get("formats", [])
@@ -242,13 +242,13 @@ if "info" in st.session_state:
         with st.expander("🎛️ Advanced Options"):
             col1, col2 = st.columns(2)
             with col1:
-                clip = st.text_input("Video Clip", placeholder="00:01:30-00:05:00")
-                sponsorblock = st.checkbox("SponsorBlock")
-                embed_metadata = st.checkbox("Embed Metadata")
+                clip = st.text_input("Video Clip", placeholder="00:01:30-00:05:00", help="Download only a specific segment. Format: HH:MM:SS-HH:MM:SS (e.g., 00:01:30-00:05:00).")
+                sponsorblock = st.checkbox("SponsorBlock", help="Automatically skip/remove sponsor segments from YouTube videos.")
+                embed_metadata = st.checkbox("Embed Metadata", help="Save video title, author, and description directly into the file.")
             with col2:
-                audio_format = st.selectbox("Audio Format", ["mp3", "m4a", "opus", "flac", "wav"])
-                audio_quality = st.selectbox("Audio Quality", ["128", "192", "256", "320"])
-                embed_thumbnail = st.checkbox("Embed Thumbnail")
+                audio_format = st.selectbox("Audio Format", ["mp3", "m4a", "opus", "flac", "wav"], help="The format used when extracting audio.")
+                audio_quality = st.selectbox("Audio Quality", ["128", "192", "256", "320"], help="Audio bitrate in kbps. Higher means better quality but larger file size.")
+                embed_thumbnail = st.checkbox("Embed Thumbnail", help="Embed the video thumbnail as the cover art for the downloaded file.")
 
         # Download button
         if st.button("⬇️ Download", type="primary", use_container_width=True):
@@ -269,19 +269,22 @@ tab1, tab2, tab3 = st.tabs(["📥 Queue", "📜 History", "ℹ️ About"])
 
 with tab1:
     st.subheader("Download Queue")
+
+    queue = get_queue()
     col1, col2, col3 = st.columns(3)
     with col1:
-        if st.button("▶️ Start Queue"):
+        if st.button("▶️ Start Queue", disabled=not bool(queue)):
             st.info("Queue processing started")
     with col2:
-        if st.button("🗑️ Clear Queue"):
+        if st.button("🗑️ Clear Queue", disabled=not bool(queue)):
             clear_queue()
             st.success("Queue cleared")
+            st.rerun() # Refresh to update button state
     with col3:
         st.metric("Pending", get_queue_stats()["pending"])
 
-    queue = get_queue()
     if queue:
+
         for item in queue:
             status_color = {"pending": "🟡", "active": "🔵", "completed": "🟢", "failed": "🔴"}.get(item["status"], "⚪")
             st.write(f"{status_color} [{item['id']}] {item['url'][:60]} — {item['status']}")

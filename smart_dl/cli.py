@@ -182,8 +182,10 @@ def run_cli():
 
     if args.list_themes:
         from smart_dl.ui.themes import list_themes
+        from smart_dl.ui import console
+        console.print("[bold cyan]Available Themes:[/bold cyan]")
         for key, name in list_themes():
-            print(f"  {key:20s} {name}")
+            console.print(f"  [green]{key:20s}[/green] {name}")
         return
 
     if args.diagnose:
@@ -204,7 +206,8 @@ def run_cli():
     if args.portable:
         from smart_dl.core.portable import enable_portable_mode
         enable_portable_mode()
-        print("Portable mode enabled.")
+        from smart_dl.ui import success
+        success("Portable mode enabled 🎒.")
 
     # ─── Smart Mode ───────────────────────────────────────────────────────────
     if args.smart_mode:
@@ -215,7 +218,12 @@ def run_cli():
         prefs = get_smart_mode()
         prefs["enabled"] = args.smart_mode == "on"
         save_smart_mode(prefs)
-        print(f"Smart Mode {'enabled' if prefs['enabled'] else 'disabled'}.")
+        from smart_dl.ui import success, warn
+        state = 'enabled 🧠' if prefs['enabled'] else 'disabled 😴'
+        if prefs['enabled']:
+            success(f"Smart Mode {state}.")
+        else:
+            warn(f"Smart Mode {state}.")
         if args.default_quality:
             prefs["quality"] = args.default_quality
             save_smart_mode(prefs)
@@ -230,14 +238,16 @@ def run_cli():
         from smart_dl.core.subscriptions import add_subscription, init_db
         init_db()
         sub_id = add_subscription(args.subscribe)
-        print(f"Subscribed! (ID: {sub_id})")
+        from smart_dl.ui import success
+        success(f"Subscribed! 🎉 (ID: {sub_id})")
         return
 
     if args.unsubscribe:
         from smart_dl.core.subscriptions import init_db, remove_subscription
         init_db()
         remove_subscription(args.unsubscribe)
-        print(f"Unsubscribed from ID {args.unsubscribe}.")
+        from smart_dl.ui import success
+        success(f"Unsubscribed from ID {args.unsubscribe}.")
         return
 
     if args.check_updates:
@@ -245,10 +255,12 @@ def run_cli():
         init_db()
         subs = get_subscriptions()
         if not subs:
-            print("No subscriptions.")
+            from smart_dl.ui import info
+            info("No subscriptions found.")
             return
+        from smart_dl.ui import info
         for sub in subs:
-            print(f"Checking: {sub['name'] or sub['url']}...")
+            info(f"Checking: {sub['name'] or sub['url']}...")
             # TODO: implement actual new upload detection
         return
 
@@ -258,7 +270,8 @@ def run_cli():
         subs = get_subscriptions()
         stats = get_subscription_stats()
         if not subs:
-            print("No subscriptions.")
+            from smart_dl.ui import info
+            info("No subscriptions found.")
             return
         from rich import box
         from rich.table import Table
@@ -272,7 +285,7 @@ def run_cli():
             t.add_row(str(sub["id"]), sub["name"] or "?", sub["url"][:50], sub["platform"], "yes" if sub["auto_download"] else "no")
         from smart_dl.ui import console
         console.print(t)
-        print(f"\n{stats['active']} active subscriptions, {stats['videos_downloaded']} videos downloaded")
+        console.print(f"\n[bold]{stats['active']}[/bold] active subscriptions, [bold]{stats['videos_downloaded']}[/bold] videos downloaded 📥")
         return
 
     # ─── Queue ────────────────────────────────────────────────────────────────
@@ -551,7 +564,8 @@ def _handle_queue(cmds):
     init_db()
 
     if not cmds:
-        print("Usage: --queue add URL... | start | pause | list | clear")
+        from smart_dl.ui import warn
+        warn("Usage: --queue add URL... | start | pause | list | clear")
         return
 
     action = cmds[0].lower()
@@ -559,10 +573,12 @@ def _handle_queue(cmds):
     if action == "add":
         urls = cmds[1:]
         if not urls:
-            print("Usage: --queue add URL1 URL2 ...")
+            from smart_dl.ui import warn
+            warn("Usage: --queue add URL1 URL2 ...")
             return
         count = add_to_queue(urls)
-        print(f"Added {count} URL(s) to queue.")
+        from smart_dl.ui import success
+        success(f"Added {count} URL(s) to queue 📥.")
 
     elif action == "list":
         items = get_queue()
@@ -584,11 +600,13 @@ def _handle_queue(cmds):
 
     elif action == "clear":
         clear_queue()
-        print("Queue cleared.")
+        from smart_dl.ui import success
+        success("Queue cleared 🧹.")
 
     elif action == "stats":
         stats = get_queue_stats()
-        print(f"Queue: {stats['total']} total, {stats['pending']} pending, {stats['active']} active, {stats['completed']} completed, {stats['failed']} failed")
+        from smart_dl.ui import console
+        console.print(f"📊 [bold cyan]Queue Stats:[/bold cyan] {stats['total']} total, [yellow]{stats['pending']} pending[/yellow], [blue]{stats['active']} active[/blue], [green]{stats['completed']} completed[/green], [red]{stats['failed']} failed[/red]")
 
 
 def _handle_history(cmds):
@@ -597,7 +615,8 @@ def _handle_history(cmds):
     init_db()
 
     if not cmds:
-        print("Usage: --history list | search QUERY | stats | re-download ID")
+        from smart_dl.ui import warn
+        warn("Usage: --history list | search QUERY | stats | re-download ID")
         return
 
     action = cmds[0].lower()
