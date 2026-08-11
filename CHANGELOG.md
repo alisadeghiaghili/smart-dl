@@ -5,6 +5,64 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 ---
 
+## [3.0.0] - 2026-08-09
+
+### Added
+- Complete rewrite from single-file monolith (1979 lines) to modular package (33 modules)
+- SQLite-backed download queue, history, and channel subscriptions
+- Video clipping (`--clip START-END`)
+- SponsorBlock integration
+- Smart Mode (save default preferences)
+- Download queue with SQLite persistence
+- Download history with search/filter/export
+- Channel subscriptions (auto-download new uploads)
+- Subtitle download/embed (50+ languages)
+- Thumbnail download/embed
+- Metadata embedding
+- Audio extraction (MP3/M4A/Opus/FLAC/WAV)
+- Multiple output formats (MP4/MKV/WebM/AVI)
+- Image gallery support (Pixiv/DeviantArt/ArtStation/Flickr/Imgur)
+- Torrent/magnet download (aria2c/transmission/qBittorrent)
+- Portable mode (USB stick)
+- 12 CLI themes (Dracula, Catppuccin, Nord, etc.)
+- Geo-bypass and browser impersonation
+- Quiet mode with file logging
+- 40+ CLI flags for full automation
+- Persian platform extractors: Filimo, Namasha, Radio Javan
+- Online course download support (Udemy, Hotmart, Kiwify, Teachable, and 15+ platforms)
+- Streamlit web GUI
+- `--diagnose` CLI flag for environment self-diagnosis
+- Parallel downloads via `core/parallel.py` (per-thread direct-to-disk)
+- CI pipeline with GitHub Actions (Python 3.8/3.10/3.12, ruff, pytest)
+- PyPI publish workflow
+
+### Changed
+- Split `smart_dl.py` into `smart_dl/` package with `core/`, `extractors/`, `ui/`, `lang/`
+- Proper `pyproject.toml` packaging with setuptools backend
+- Retry duration cap (30min vs infinite loop)
+- `signal.SIGTERM` crash on Windows fixed
+- Shell injection in PATH modification fixed
+- `_save_config` error handling improved
+- `fmt_size(0)` returning `?` instead of `0 B` fixed
+- Variable shadowing built-in `info()` fixed
+- Proxy detection: prefer SOCKS over HTTP/HTTPS in Windows registry parse
+- Read `ALL_PROXY`, `SOCKS5_PROXY`, `socks_proxy`, `SOCKS_PROXY`, `SOCKS4_PROXY` env vars
+- Split proxy read from write: `peek_current_proxy()` is read-only
+- `apply_proxy()` validates URL and rejects malformed input
+- Collapse nested `make_progress()` in youtube.py into single outer progress
+- Replace global `_no_internet_shown` with per-host set
+- Honor `SMARTDL_NO_DEPS` in `__init__.py` so tests skip auto-install
+- Drop broken `__import__('os')` duplicates of `is_magnet_link` and `is_torrent_file`
+- Fix pre-existing F821 (undefined names) and F601 (duplicate dict key)
+- ruff --fix cleans up unsorted imports
+
+### Fixed
+- SOCKS5 proxy detection bug: old code returned malformed URL like `http://socks=127.0.0.1:10808`
+- Frozen spinner symptom in downloads
+- `no internet` panel now fires once per host, not once globally
+
+---
+
 ## [2.5.3] - 2026-04-16
 
 ### Fixed
@@ -112,18 +170,19 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 ## [2.3.1] - 2026-04-10
 
 ### Fixed
-- **Proxy detection**: lowercase env vars (`https_proxy`, `http_proxy`) now
-  checked for Linux/Mac compatibility; Windows registry proxy now correctly
-  calls `_apply_proxy()` to persist config and set env vars for the session
-- **Keyboard interrupt / EOFError**: `_pick_output_folder()` and `_proxy_step()`
-  wrapped in `try/except` in `main()`; "Download another?" prompt now also
-  protected — all exit paths consistently call `_bye()`
-- **RSS false positive**: `_is_rss()` now uses tag-based `<rss`/`<feed` checks
-  instead of loose substring matching that triggered on any page containing
-  "channel" or "feed"
-- **Duplicate code**: removed duplicate `_has_ffmpeg()` definition, duplicate
-  `print_section()` definition, duplicate `if again in (…)` block, and unused
-  `_parse_v2ray_link()` function
+- Proxy detection: add lowercase env var checks (https_proxy, http_proxy) for Linux/Mac
+- Call `_apply_proxy()` after reading Windows registry proxy so env vars
+  are set for the current session and config is persisted
+- Wrap `_pick_output_folder()` + `_proxy_step()` in try/except in `main()`
+- URL prompt already had protection; "Download another?" now also wrapped
+- All exit paths consistently call `_bye()` instead of inline prints
+- Remove duplicate `if again in ("", "y", "n")` block in "Download another?"
+- Fix `_is_rss()` false positive: replace loose "rss"/"feed"/"channel"
+  substring checks with tag-based "<rss" / "<feed" checks to avoid
+  misidentifying regular HTML pages as RSS feeds
+- Remove `_parse_v2ray_link()` (unused)
+- Remove duplicate `_has_ffmpeg()` definition
+- Remove duplicate `print_section()` definition
 
 ---
 
@@ -131,12 +190,12 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 ### Added
 - `_show_yt_info()` — video info panel (title, channel, duration, views) before quality picker
-- `retry_with_backoff()` — exponential backoff (5s→300s), Ctrl+C aware, skips fatal errors
-- `YTLogger` — suppresses noisy yt-dlp warnings, surfaces actionable errors only
+- `retry_with_backoff()` — exponential backoff (5s → 300s) with graceful Ctrl+C
+- `YTLogger` — suppresses noisy yt-dlp warnings, surfaces real errors
 - `_diagnose_error()` + `ERROR_HINTS` — human-readable hints for 15+ error types
-- `_warn_no_ffmpeg()` — rich panel with install instructions
-- `make_progress()` — reusable rich Progress bar factory
-- `yt_hook` + `_progress_ctx` — replaces old `Hook` class
+- `_warn_no_ffmpeg()` panel with install instructions
+- `_progress_ctx` + `yt_hook` replacing the old `Hook` class
+- `make_progress()` reusable progress bar factory
 
 ### Changed
 - Quality menu now lists all available formats:
@@ -145,11 +204,10 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 - `_download_yt()` accepts `is_audio` param, uses `YTLogger`, `yt_hook`, `retry_with_backoff`
 
 ### Fixed
-- `importlib.util.find_spec` import — compatible with Python 3.8–3.14
-- Proxy env vars — now checks both `HTTPS_PROXY` (Windows) and `https_proxy` (Linux/Mac)
-- Registry proxy — `_apply_proxy()` was not called after reading from registry
+- importlib: use `from importlib.util import find_spec` (Python 3.8+ safe)
+- Proxy env vars: now checks both UPPERCASE and lowercase variants
+- Registry proxy: was read but `_apply_proxy()` was never called → fixed
 - Removed duplicate `_has_ffmpeg()` definition
-- `WinError 10061` (proxy unreachable) — offer clear-and-retry instead of crash
 
 ---
 
@@ -184,18 +242,13 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 ### Added
 - ffmpeg presence check before attempting MP3 or merge downloads
-- Warning panel shown when ffmpeg is missing with install instructions
-- Multi-thread fragment downloads (default: 4 concurrent)
-- Infinite retry with exponential backoff for network errors
-- Resume support via yt-dlp `continuedl` option
-- Proxy configuration menu at runtime (HTTP and SOCKS5)
-- Common proxy port presets (v2rayN, Clash, Squid)
-- RSS feed parsing for podcast batch downloads
-- Episode selection for RSS feeds
-
-### Changed
-- Rebranded to SmartDL
-- Rich-based CLI with progress bars, panels, and color output
+- `_has_ffmpeg()` helper using `shutil.which`
+- Warning panel when ffmpeg is missing with install instructions
+- Auto-install ffmpeg via winget on Windows (with user confirmation)
+- Proxy persistence across sessions — saved to config.json
+- DRM error message with clear explanation
+- Proxy prompt validation (reject empty/invalid input)
+- Windows registry proxy detection (winreg)
 
 ---
 
@@ -203,7 +256,3 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 ### Added
 - Initial release
-- YouTube video/audio download via yt-dlp
-- Direct podcast URL download
-- Auto-install missing Python dependencies on first run
-- Output folder selection
