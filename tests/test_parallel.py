@@ -21,11 +21,20 @@ class TestParallelDownloads:
         import shutil
         shutil.rmtree(self.tmp, ignore_errors=True)
 
-    def _fake_response(self, body: bytes):
-        """Build a context-manager `requests.Response` whose .raw is a BytesIO."""
+    def _fake_response(self, body, content_length=None):
+        """Build a context-manager `requests.Response` whose .raw is a BytesIO.
+
+        `content_length`, when given, is advertised in the headers so the
+        truncation check in `_copy_one` can be exercised.
+        """
         resp = MagicMock(spec=requests.Response)
         resp.status_code = 200
         resp.raw = MagicMock()
+        # A real requests.Response.headers is a dict — stub it as one.
+        headers = {}
+        if content_length is not None:
+            headers["Content-Length"] = str(content_length)
+        resp.headers = headers
         # copyfileobj reads from resp.raw in chunks. Patch read to drain `body`.
         it = iter([body[i:i + 4096] for i in range(0, len(body), 4096)] + [b""])
 
@@ -40,6 +49,20 @@ class TestParallelDownloads:
         resp.__enter__ = lambda self: resp
         resp.__exit__ = lambda self, *a: False
         return resp
+
+    def test_truncated_content_length_leaves_no_file(self):
+        """A body shorter than the advertised Content-Length must not produce
+        a final file, and the .part temp must be cleaned up."""
+        from smart_dl.core.parallel import parallel_downloads
+        body = b"only-part-of-it"
+        dest = self.tmp / "trunc.bin"
+        resp = self._fake_response(body, content_length=len(body) + 500)
+        with patch("requests.Session") as MockSession:
+            MockSession.return_value.get.return_value = resp
+            results = parallel_downloads([("http://example.com/x", dest)], max_workers=1)
+        assert results[0] is None
+        assert not dest.exists()
+        assert not dest.with_name(dest.name + ".part").exists()
 
     def test_empty_items_returns_empty_list(self):
         from smart_dl.core.parallel import parallel_downloads

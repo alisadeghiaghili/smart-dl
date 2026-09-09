@@ -54,6 +54,10 @@ def do_download(url: str, out_dir: str, fmt: str, is_audio: bool = False,
     from smart_dl.core.retry import retry_with_backoff
     from smart_dl.settings import DL_SETTINGS
 
+    # The user-supplied output dir is only referenced in outtmpl below, so it
+    # must be created here (unlike the TUI/CLI paths) or a fresh dir fails.
+    Path(out_dir).mkdir(parents=True, exist_ok=True)
+
     opts = build_download_opts(
         fmt=fmt, is_audio=is_audio, clip=clip, sponsorblock=sponsorblock,
         audio_format=audio_format, audio_quality=audio_quality,

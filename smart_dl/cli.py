@@ -181,8 +181,8 @@ def run_cli():
         set_theme(args.theme)
 
     if args.list_themes:
-        from smart_dl.ui.themes import list_themes
         from smart_dl.ui import console
+        from smart_dl.ui.themes import list_themes
         console.print("[bold cyan]Available Themes:[/bold cyan]")
         for key, name in list_themes():
             console.print(f"  [green]{key:20s}[/green] {name}")
@@ -335,13 +335,23 @@ def run_cli():
 
     # ─── Output directory ─────────────────────────────────────────────────────
     out_folder = Path(args.output) if args.output else Path.home() / "Downloads" / "SmartDL"
-    out_folder.mkdir(parents=True, exist_ok=True)
+    try:
+        out_folder.mkdir(parents=True, exist_ok=True)
+    except OSError as e:
+        from smart_dl.ui import error
+        error(f"Cannot create output directory: {out_folder}\n  {str(e)[:120]}")
+        sys.exit(1)
 
     # ─── Process URLs ─────────────────────────────────────────────────────────
     from smart_dl.ui import error, info, success, warn
     from smart_dl.utils import is_aparat_url, is_playlist_url, is_podcast_url, is_youtube_url
 
+    ok_count = 0
+    failed_count = 0
+    interrupted = False
+
     for url in urls:
+        ok = True
         try:
             # ── List subtitles ────────────────────────────────────────────────
             if args.list_subs:
@@ -410,7 +420,7 @@ def run_cli():
                 if args.quality != "best" and args.quality.isdigit():
                     h = int(args.quality)
                     fmt = f"bestvideo[height<={h}]+bestaudio/best"
-                download_with_features(
+                ok = download_with_features(
                     url, out_folder, fmt=fmt, is_audio=is_audio,
                     clip=args.clip, sponsorblock=args.sponsorblock,
                     audio_format=args.audio_format, audio_quality=args.audio_quality,
@@ -434,7 +444,7 @@ def run_cli():
                 from smart_dl.core.downloader import download_with_features
                 fmt = "bestvideo+bestaudio/best"
                 is_audio = args.audio_only
-                download_with_features(
+                ok = download_with_features(
                     url, out_folder, fmt=fmt, is_audio=is_audio,
                     clip=args.clip, sponsorblock=args.sponsorblock,
                     audio_format=args.audio_format, audio_quality=args.audio_quality,
@@ -445,10 +455,30 @@ def run_cli():
 
         except KeyboardInterrupt:
             warn("Interrupted.")
+            ok = False
+            interrupted = True
             break
         except Exception as e:
+            ok = False
             error(f"Error: {str(e)[:200]}")
+        finally:
+            # Runs on success, `continue`, `break`, and exceptions alike, so
+            # every URL in `urls` is accounted for exactly once.
+            if ok:
+                ok_count += 1
+            else:
+                failed_count += 1
 
+    # ─── Accurate summary + exit code ─────────────────────────────────────────
+    # A fully-failed (or interrupted) batch must not report "All done!" and
+    # exit 0 to the shell.
+    if interrupted:
+        warn(f"Stopped after {ok_count} ok, {failed_count} failed, "
+             f"{len(urls) - ok_count - failed_count} not attempted.")
+        sys.exit(1)
+    if failed_count:
+        warn(f"{ok_count}/{len(urls)} succeeded, {failed_count} failed.")
+        sys.exit(1)
     success("All done!")
 
 

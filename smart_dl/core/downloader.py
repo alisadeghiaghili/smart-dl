@@ -1,15 +1,12 @@
 """Download engine — Smart Mode, clipping, SponsorBlock, format selection."""
 from pathlib import Path
 
-import yt_dlp
-
 from smart_dl.core.config import load_config, save_config
 from smart_dl.core.cookies import get_cookie_browser
 from smart_dl.core.proxy import get_current_proxy
-from smart_dl.core.retry import retry_with_backoff
 from smart_dl.settings import DL_SETTINGS
-from smart_dl.ui import console, error, success, warn
-from smart_dl.ui.progress import _progress_ctx, make_progress, stop_event, yt_hook
+from smart_dl.ui import console, success
+from smart_dl.ui.progress import yt_hook
 
 try:
     from smart_dl.lang import t
@@ -168,15 +165,17 @@ def build_download_opts(
 ):
     """Build yt-dlp options dict with all features."""
     prx = get_current_proxy()
-    maxr = DL_SETTINGS["max_retries"]
     frags = DL_SETTINGS["fragments"]
 
+    # yt-dlp's internal retries are kept low on purpose: the outer
+    # retry_with_backoff is the single retry authority. Setting both to the
+    # user's max_retries would multiply them (999 x 999) and hang for ~30 min.
     opts = {
         "format": fmt,
         "outtmpl": str(Path.home() / "Downloads" / "SmartDL" / "%(title)s [%(format_id)s].%(ext)s"),
         "continuedl": True,
-        "retries": maxr,
-        "fragment_retries": maxr,
+        "retries": 3,
+        "fragment_retries": 3,
         "skip_unavailable_fragments": False,
         "concurrent_fragment_downloads": frags,
         "socket_timeout": 30,
@@ -184,7 +183,7 @@ def build_download_opts(
         "logger": _QuietLogger() if quiet else None,
         "progress_hooks": [yt_hook] if not quiet else [],
         "quiet": quiet,
-        "no_progress": quiet,
+        "noprogress": quiet,
         "file_access_retries": 10,
         "extractor_retries": 10,
     }
@@ -247,41 +246,15 @@ def build_download_opts(
 
 def download_with_features(url, out_folder, fmt="bestvideo+bestaudio/best",
                            is_audio=False, **kwargs):
-    """Download with all features enabled."""
-    from smart_dl.extractors.youtube import _YTLogger
+    """Download with all features enabled. Returns True on success.
 
-    stop_event.clear()
-    maxr = DL_SETTINGS["max_retries"]
-
-    opts = build_download_opts(fmt=fmt, is_audio=is_audio, **kwargs)
-    opts["outtmpl"] = str(out_folder / "%(title)s [%(format_id)s].%(ext)s")
-    opts["logger"] = _YTLogger()
-    opts["progress_hooks"] = [yt_hook]
-    opts["quiet"] = True
-    opts["no_progress"] = True
-
-    def _do_download():
-        with yt_dlp.YoutubeDL(opts) as ydl:
-            ydl.download([url])
-
-    with make_progress() as prog:
-        _progress_ctx["last"] = 0
-        _progress_ctx["task"] = prog.add_task("[cyan]Downloading...[/cyan]", total=None)
-        _progress_ctx["obj"] = prog
-        try:
-            retry_with_backoff(_do_download, max_retries=maxr)
-        except KeyboardInterrupt:
-            warn("Stopped by user.")
-            return
-        except Exception as e:
-            if stop_event.is_set(): return
-            error(str(e)[:200])
-            return
-        finally:
-            _progress_ctx["task"] = None
-            _progress_ctx["obj"] = None
-
-    success("Download complete!  \u2192  " + str(out_folder))
+    Delegates to the single canonical download path (youtube.download_yt) so
+    the CLI and the interactive TUI share one implementation. `quiet` is a
+    display concern handled there, not a yt-dlp option.
+    """
+    from smart_dl.extractors.youtube import download_yt
+    # The CLI drives its own output; suppress the interactive TUI header.
+    return download_yt(url, out_folder, fmt, is_audio=is_audio, show_header=False, **kwargs)
 
 
 class _QuietLogger:

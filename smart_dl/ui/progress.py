@@ -1,4 +1,6 @@
 """Progress bar wrapper and yt-dlp progress hook."""
+from __future__ import annotations
+
 import threading
 from pathlib import Path
 

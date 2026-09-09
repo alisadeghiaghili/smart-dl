@@ -44,7 +44,9 @@ def settings_menu():
                 default="999"
             ).strip()
             if val.isdigit():
-                DL_SETTINGS["max_retries"] = int(val) if int(val) < 999 else 999
+                # 0 means "infinite"; store 999 (the app's infinite sentinel)
+                # so every caller sees one representation.
+                DL_SETTINGS["max_retries"] = 999 if int(val) >= 999 or int(val) == 0 else int(val)
                 lbl = "infinite" if DL_SETTINGS["max_retries"] >= 999 else str(DL_SETTINGS["max_retries"])
                 success("Max retries set to: " + lbl)
             else:

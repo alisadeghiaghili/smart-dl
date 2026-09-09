@@ -307,10 +307,12 @@ def handle_playlist(url, out_folder):
             fmt, is_audio = shared_fmt, shared_is_audio
 
         try:
-            download_yt(vid_url, out_folder, fmt, is_audio)
+            ok = download_yt(vid_url, out_folder, fmt, is_audio)
         except Exception as e:
+            ok = False
             warn("Skipped: " + str(e)[:80])
-            skipped.append((i, vid_title, str(e)[:80]))
+        if not ok:
+            skipped.append((i, vid_title, "Download failed"))
 
     console.print()
     done = total - len(skipped)
@@ -362,9 +364,11 @@ def handle_playlist(url, out_folder):
         else:
             fmt, is_audio = shared_fmt, shared_is_audio
         try:
-            download_yt(vid_url, out_folder, fmt, is_audio)
-        except Exception as e:
-            still_skipped.append((idx, vtitle, str(e)[:80]))
+            ok = download_yt(vid_url, out_folder, fmt, is_audio)
+        except Exception:
+            ok = False
+        if not ok:
+            still_skipped.append((idx, vtitle, "Download failed"))
 
     if still_skipped:
         console.print()
@@ -375,44 +379,35 @@ def handle_playlist(url, out_folder):
         success("All retried videos downloaded successfully.")
 
 
-def download_yt(url, out_folder, fmt, is_audio=False):
-    """Download a YouTube video with retry logic."""
+def download_yt(url, out_folder, fmt, is_audio=False, show_header=True, **features):
+    """Download a video via the shared yt-dlp engine. Returns True on success.
+
+    `features` are forwarded to the canonical opts builder (clip,
+    sponsorblock, embed_*, geo_bypass, impersonate, output_template, ...), so
+    the interactive TUI and the CLI share one download implementation.
+
+    `quiet` (accepted for CLI compatibility) controls only the on-screen
+    "Downloading" header, never yt-dlp \u2014 yt-dlp is always run quietly and we
+    drive progress via our own hook.
+    """
+    features.pop("quiet", None)
     stop_event.clear()
-    prx   = get_current_proxy()
     maxr  = DL_SETTINGS["max_retries"]
     frags = DL_SETTINGS["fragments"]
-    retry_label = "infinite" if maxr >= 999 else str(maxr)
-    print_section("Downloading", "\u2b07")
-    info("Resume enabled  \u00b7  " + retry_label + " retr" + ("y" if maxr==1 else "ies") +
-         "  \u00b7  " + str(frags) + "-thread fragments")
+    if show_header:
+        retry_label = "infinite" if maxr >= 999 else str(maxr)
+        print_section("Downloading", "\u2b07")
+        info("Resume enabled  \u00b7  " + retry_label + " retr" + ("y" if maxr==1 else "ies") +
+             "  \u00b7  " + str(frags) + "-thread fragments")
 
-    opts = {
-        "format":                        fmt,
-        "outtmpl":                       str(out_folder / "%(title)s [%(format_id)s].%(ext)s"),
-        "continuedl":                    True,
-        "retries":                       maxr,
-        "fragment_retries":              maxr,
-        "skip_unavailable_fragments":    False,
-        "concurrent_fragment_downloads": frags,
-        "socket_timeout":                30,
-        "http_chunk_size":               10 * 1024 * 1024,
-        "logger":                        _YTLogger(),
-        "progress_hooks":                [yt_hook],
-        "merge_output_format":           "mp4" if (not is_audio and "+" in fmt) else None,
-        "quiet":                         True,
-        "no_progress":                   True,
-        "file_access_retries":           10,
-        "extractor_retries":             10,
-        "postprocessors": (
-            [{"key":"FFmpegExtractAudio","preferredcodec":"mp3","preferredquality":"192"}]
-            if is_audio else []
-        ),
-    }
-    if prx:
-        opts["proxy"] = prx
-    _saved_b = get_cookie_browser()
-    if _saved_b:
-        opts["cookiesfrombrowser"] = (_saved_b, None, None, None)
+    # Route through the shared opts builder so proxy, cookies, format merging
+    # and the low internal-retry constant are configured in one place (the
+    # outer retry_with_backoff is the single retry authority).
+    from smart_dl.core.downloader import build_download_opts
+    opts = build_download_opts(fmt=fmt, is_audio=is_audio, quiet=True, **features)
+    opts["outtmpl"] = str(out_folder / "%(title)s [%(format_id)s].%(ext)s")
+    opts["logger"] = _YTLogger()
+    opts["progress_hooks"] = [yt_hook]
 
     def _do_download():
         with yt_dlp.YoutubeDL(opts) as ydl:
@@ -457,17 +452,20 @@ def download_yt(url, out_folder, fmt, is_audio=False):
                 info(hint)
             return False
 
+    ok = False
     with make_progress() as prog:
         _progress_ctx["last"] = 0
         _progress_ctx["task"] = prog.add_task("[cyan]Downloading...[/cyan]", total=None)
         _progress_ctx["obj"] = prog
         try:
-            _attempt_download()
+            ok = _attempt_download()
         finally:
             _progress_ctx["task"] = None
             _progress_ctx["obj"] = None
 
-    success("Download complete!  \u2192  " + str(out_folder))
+    if ok:
+        success("Download complete!  \u2192  " + str(out_folder))
+    return ok
 
 
 def download_thumbnail(url, out_folder, info_dict=None):

@@ -12,14 +12,14 @@ from smart_dl.core.config import load_config, save_config
 from smart_dl.ui import console, info, success, warn
 
 LOCALHOST_PORTS = [
-    (10809, "v2rayN / Xray / Nekoray     (HTTP)"),
-    (10808, "v2rayN / Xray / Nekoray     (SOCKS5)"),
-    (7890,  "Clash / ClashX / MahsaNG   (HTTP)"),
-    (7891,  "Clash / ClashX / MahsaNG   (SOCKS5)"),
-    (2081,  "Hiddify                    (HTTP)"),
-    (2080,  "Hiddify                    (SOCKS5)"),
-    (1080,  "Generic SOCKS5"),
-    (8080,  "Generic HTTP"),
+    (10809, "v2rayN / Xray / Nekoray     (HTTP)",   "http"),
+    (10808, "v2rayN / Xray / Nekoray     (SOCKS5)", "socks5"),
+    (7890,  "Clash / ClashX / MahsaNG   (HTTP)",    "http"),
+    (7891,  "Clash / ClashX / MahsaNG   (SOCKS5)",  "socks5"),
+    (2081,  "Hiddify                    (HTTP)",    "http"),
+    (2080,  "Hiddify                    (SOCKS5)",  "socks5"),
+    (1080,  "Generic SOCKS5",            "socks5"),
+    (8080,  "Generic HTTP",              "http"),
 ]
 
 _PROXY_ENV_VARS = (
@@ -42,6 +42,11 @@ def _is_socks_port(addr: str) -> bool:
         return int(m.group(1)) in _SOCKS5_HINT_PORTS
     except ValueError:
         return False
+
+
+def _localhost_proxy_url(port, protocol: str) -> str:
+    """Build a localhost proxy URL, e.g. socks5://127.0.0.1:10808."""
+    return "%s://127.0.0.1:%s" % (protocol, port)
 
 
 def _peek_env_proxy() -> str:
@@ -163,6 +168,9 @@ def apply_proxy(addr: str) -> bool:
         return False
     os.environ["HTTP_PROXY"]  = addr
     os.environ["HTTPS_PROXY"] = addr
+    # ALL_PROXY too — libraries that only read the generic var (and any SOCKS
+    # proxy, which HTTP_PROXY alone won't be honoured by) need it.
+    os.environ["ALL_PROXY"]   = addr
     cfg = load_config()
     cfg["proxy"] = addr
     save_config(cfg)
@@ -228,8 +236,8 @@ def proxy_menu():
             t2.add_column("Port",    style="white",     width=9)
             t2.add_column("Common use", style="dim",    width=32)
             t2.add_column("Address", style="cyan")
-            for idx,(port,label) in enumerate(LOCALHOST_PORTS,1):
-                t2.add_row(str(idx), str(port), label, "http://127.0.0.1:" + str(port))
+            for idx,(port,label,proto) in enumerate(LOCALHOST_PORTS,1):
+                t2.add_row(str(idx), str(port), label, _localhost_proxy_url(port, proto))
             t2.add_row("C", "custom", "Enter a custom port", "")
             t2.add_row("0", "back", "Return to proxy menu", "")
             console.print(t2)
@@ -239,11 +247,16 @@ def proxy_menu():
             if sel == "c":
                 p = Prompt.ask("  [bold yellow]Port[/bold yellow]").strip()
                 if p.isdigit():
-                    addr = "http://127.0.0.1:" + p
+                    proto = Prompt.ask(
+                        "  [bold yellow]Protocol[/bold yellow] [dim](http / socks5)[/dim]",
+                        default="http").strip().lower()
+                    if proto not in ("http", "socks5"):
+                        proto = "http"
+                    addr = _localhost_proxy_url(p, proto)
                     apply_proxy(addr); hint_proxy_port(addr); success("Proxy set: " + addr)
             elif sel.isdigit() and 1 <= int(sel) <= len(LOCALHOST_PORTS):
-                port, _ = LOCALHOST_PORTS[int(sel)-1]
-                addr = "http://127.0.0.1:" + str(port)
+                port, _, proto = LOCALHOST_PORTS[int(sel)-1]
+                addr = _localhost_proxy_url(port, proto)
                 apply_proxy(addr); hint_proxy_port(addr); success("Proxy set: " + addr)
             break
         elif ch == "3":

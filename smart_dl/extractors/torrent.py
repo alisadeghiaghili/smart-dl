@@ -147,10 +147,7 @@ def _download_aria2(url: str, out_dir: str):
     if prx:
         cmd.append("--all-proxy=" + prx)
 
-    if is_magnet_link(url):
-        cmd.append(url)
-    else:
-        cmd.append(url)
+    cmd.append(url)
 
     info("Starting download with aria2c...")
     try:
@@ -172,12 +169,19 @@ def _download_aria2(url: str, out_dir: str):
 
 
 def _download_transmission(url: str, out_dir: str):
-    """Download using transmission-cli."""
+    """Download using transmission-cli.
+
+    No proxy CLI flag exists for transmission-cli; it reads ALL_PROXY /
+    HTTPS_PROXY from the environment, which apply_proxy() now populates.
+    """
     cmd = ["transmission-cli", "-w", out_dir, url]
     info("Starting download with transmission-cli...")
     try:
-        subprocess.run(cmd, timeout=None)
-        success("Torrent download complete!")
+        proc = subprocess.run(cmd, timeout=None)
+        if proc.returncode == 0:
+            success("Torrent download complete!")
+        else:
+            error("transmission-cli exited with code " + str(proc.returncode))
     except KeyboardInterrupt:
         warn("Stopped by user.")
     except Exception as e:
@@ -185,11 +189,18 @@ def _download_transmission(url: str, out_dir: str):
 
 
 def _download_qbittorrent(url: str, out_dir: str):
-    """Download using qBittorrent CLI."""
+    """Download using qBittorrent CLI.
+
+    No proxy CLI flag exists for `qbt`; it reads ALL_PROXY / HTTPS_PROXY from
+    the environment, which apply_proxy() now populates.
+    """
     cmd = ["qbt", "torrent", "add", url, "--save-path", out_dir]
     info("Starting download with qBittorrent...")
     try:
-        subprocess.run(cmd, timeout=None)
-        success("Torrent added to qBittorrent!")
+        proc = subprocess.run(cmd, timeout=None)
+        if proc.returncode == 0:
+            success("Torrent added to qBittorrent!")
+        else:
+            error("qBittorrent exited with code " + str(proc.returncode))
     except Exception as e:
         error("Failed to add torrent: " + str(e))

@@ -74,7 +74,13 @@ def is_network_error(msg: str) -> bool:
 
 
 def retry_with_backoff(func, max_retries=999, base_delay=5, max_delay=300, max_duration=1800):
-    """Retry func() with exponential backoff. Caps at max_duration seconds."""
+    """Retry func() with backoff.
+
+    max_retries: max retries before giving up and raising. A value of 0 (or
+    negative) means "infinite" — keep retrying until max_duration is reached.
+    Network errors always keep retrying (until max_duration) regardless.
+    """
+    infinite = max_retries <= 0
     attempt, delay = 0, base_delay
     start_time = time.monotonic()
     while not stop_event.is_set():
@@ -91,7 +97,7 @@ def retry_with_backoff(func, max_retries=999, base_delay=5, max_delay=300, max_d
             attempt += 1
             elapsed = time.monotonic() - start_time
             net = is_network_error(msg)
-            if attempt >= max_retries and not net:
+            if not infinite and attempt >= max_retries and not net:
                 raise
             if elapsed >= max_duration:
                 warn("Retried for " + str(int(elapsed)) + "s \u2014 giving up. Try again later or check your connection.")

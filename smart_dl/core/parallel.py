@@ -11,6 +11,7 @@ Usage:
 """
 from __future__ import annotations
 
+import os
 import shutil
 from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path
@@ -25,25 +26,51 @@ def _copy_one(
     dest: Path,
     proxy: Optional[str],
     cancel: Event,
-    session: requests.Session,
     chunk_size: int = 64 * 1024,
 ) -> Optional[Path]:
     """Stream one URL to disk using shutil.copyfileobj.
+
+    Writes to a ``.part`` temp file and atomically renames it on success, so a
+    truncated/failed transfer never leaves a corrupt file at the real path.
+    When the server advertises a Content-Length, a short body is treated as
+    failure. Each worker builds and closes its own ``requests.Session`` — a
+    single Session shared across threads is not thread-safe.
 
     Returns the dest path on success, None if cancelled or on error.
     """
     if cancel.is_set():
         return None
+    session = requests.Session()
+    if proxy:
+        session.proxies = {"http": proxy, "https": proxy}
+    tmp = dest.with_name(dest.name + ".part")
     try:
         with session.get(url, stream=True, timeout=30) as resp:
             resp.raise_for_status()
             dest.parent.mkdir(parents=True, exist_ok=True)
-            with open(dest, "wb") as f:
+            expected = resp.headers.get("Content-Length")
+            expected = int(expected) if (expected or "").isdigit() else None
+            with open(tmp, "wb") as f:
                 # Fast path: bypass Python per-chunk overhead.
                 shutil.copyfileobj(resp.raw, f, length=chunk_size)
+            if expected is not None and tmp.stat().st_size != expected:
+                raise IOError(
+                    "Download truncated: got %d bytes, expected %d"
+                    % (tmp.stat().st_size, expected)
+                )
+        if dest.exists():
+            dest.unlink()
+        os.replace(tmp, dest)
         return dest
     except Exception:
+        try:
+            if tmp.exists():
+                tmp.unlink()
+        except OSError:
+            pass
         return None
+    finally:
+        session.close()
 
 
 def parallel_downloads(
@@ -55,8 +82,8 @@ def parallel_downloads(
 ) -> list[Optional[Path]]:
     """Download a list of (url, dest_path) pairs in parallel.
 
-    Each worker uses the same shared `requests.Session` so connection pools
-    are reused. Stops early if `cancel` is set.
+    Each worker owns its own ``requests.Session`` (thread-safe) and writes via
+    an atomic temp-file rename. Stops early if `cancel` is set.
 
     Returns a list of completed paths (or None for failures/cancellations),
     in the same order as `items`.
@@ -68,14 +95,10 @@ def parallel_downloads(
     if max_workers < 1:
         max_workers = 1
 
-    session = requests.Session()
-    if proxy:
-        session.proxies = {"http": proxy, "https": proxy}
-
     results: list[Optional[Path]] = [None] * len(items)
     with ThreadPoolExecutor(max_workers=max_workers) as ex:
         future_to_idx = {
-            ex.submit(_copy_one, url, dest, proxy, cancel, session, chunk_size): i
+            ex.submit(_copy_one, url, dest, proxy, cancel, chunk_size): i
             for i, (url, dest) in enumerate(items)
         }
         for fut in future_to_idx:

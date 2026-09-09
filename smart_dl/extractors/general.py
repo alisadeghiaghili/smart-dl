@@ -161,8 +161,10 @@ def batch_download(urls, out_folder):
                 if info_dict:
                     fmt, is_audio = yt_quality_menu(info_dict)
                     if fmt:
-                        download_yt(url, out_folder, fmt, is_audio)
-                        success_list.append(url)
+                        if download_yt(url, out_folder, fmt, is_audio):
+                            success_list.append(url)
+                        else:
+                            failed_list.append((url, "Download failed"))
                     else:
                         failed_list.append((url, "Skipped by user"))
                 else:

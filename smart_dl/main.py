@@ -157,8 +157,17 @@ def main():
                         if not already:
                             try:
                                 import requests
+
+                                from smart_dl.core.proxy import get_current_proxy
                                 ct = ""
-                                resp = requests.head(url, timeout=10, allow_redirects=True)
+                                prx = get_current_proxy()
+                                kwargs = {"timeout": 10, "allow_redirects": True}
+                                if prx:
+                                    # Without the proxy this probe fails for the
+                                    # app's proxy-first users and mis-routes a
+                                    # valid podcast URL to "Cannot handle".
+                                    kwargs["proxies"] = {"http": prx, "https": prx}
+                                resp = requests.head(url, **kwargs)
                                 ct = resp.headers.get("Content-Type", "")
                             except Exception:
                                 pass

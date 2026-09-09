@@ -12,6 +12,7 @@ from rich.table import Table
 
 from smart_dl.core.installer import has_ffmpeg
 from smart_dl.core.proxy import get_current_proxy
+from smart_dl.core.retry import diagnose_error, retry_with_backoff
 from smart_dl.settings import DL_SETTINGS
 from smart_dl.ui import console, error, info, print_section, success, warn
 from smart_dl.ui.progress import stop_event
@@ -126,7 +127,7 @@ def podcast_quality_menu(raw_sz=None):
         try:
             sel = Prompt.ask("  [bold yellow]Select quality #[/bold yellow]", default="1").strip()
         except (KeyboardInterrupt, EOFError):
-            return None, False
+            return None
         if sel.isdigit() and 1 <= int(sel) <= len(rows):
             return rows[int(sel)-1]
         warn("Enter a number between 1 and " + str(len(rows)) + ".")
@@ -150,7 +151,7 @@ def _convert_audio(raw_path, out_path, fmt_key):
 
 
 def download_podcast_url(url, out_folder, fmt_tuple):
-    """Download a podcast audio file with retry logic."""
+    """Download a podcast audio file. Returns True on success, False otherwise."""
     stop_event.clear()
     label, fmt_key, _ = fmt_tuple
     prx = get_current_proxy()
@@ -167,57 +168,67 @@ def download_podcast_url(url, out_folder, fmt_tuple):
         "quiet":           True,
         "no_warnings":     True,
         "continuedl":      True,
-        "retries":         max_r,
-        "fragment_retries":max_r,
+        # yt-dlp's internal retries stay low; the outer retry_with_backoff is
+        # the single retry authority (avoids 999 x 999 double-retry hangs).
+        "retries":         3,
+        "fragment_retries":3,
         "concurrent_fragment_downloads": frags,
         "noprogress":      True,
     }
     if prx: ydl_opts["proxy"] = prx
 
-    raw = out_folder / "podcast_raw"
-    attempt = 0
-    while not stop_event.is_set():
-        attempt += 1
-        try:
-            with yt_dlp.YoutubeDL(ydl_opts) as ydl:
-                ydl.download([url])
+    def _do_download():
+        with yt_dlp.YoutubeDL(ydl_opts) as ydl:
+            ydl.download([url])
 
-            candidates = list(out_folder.glob("podcast_raw*"))
-            raw = candidates[0] if candidates else raw
+    try:
+        retry_with_backoff(_do_download, max_retries=max_r)
+    except KeyboardInterrupt:
+        warn("Stopped by user.")
+        return False
+    except Exception as e:
+        if stop_event.is_set():
+            return False
+        error(str(e)[:200])
+        hint = diagnose_error(e)
+        if hint:
+            info(hint)
+        return False
 
-            if fmt_key == "original":
-                out = out_folder / ("podcast." + raw.suffix.lstrip(".") or "mp3")
-                raw.rename(out)
-                success("Downloaded: " + out.name)
-            else:
-                if not has_ffmpeg():
-                    error("ffmpeg not found. Install it first (type i at URL prompt).")
-                    warn("Raw file saved: " + str(raw))
-                    return
-                out = out_folder / "podcast"
-                try:
-                    final = _convert_audio(raw, out, fmt_key)
-                    raw.unlink(missing_ok=True)
-                    success("Downloaded: " + final.name)
-                except Exception as e:
-                    _estr = str(e)
-                    if "3199971767" in _estr or "BEF00007" in _estr.upper():
-                        error("ffmpeg could not convert \u2014 file may be DRM-protected or corrupted.")
-                        info("Spotify tracks are DRM-protected and cannot be converted.")
-                        info("Try a different source, or use option 1 (Original) to keep the raw file.")
-                    else:
-                        error("ffmpeg error: " + _estr)
-                    warn("Raw file saved: " + str(raw))
-            return
+    candidates = list(out_folder.glob("podcast_raw*"))
+    raw = candidates[0] if candidates else out_folder / "podcast_raw"
+    if not raw.exists():
+        error("Download finished but no file was produced.")
+        return False
 
-        except KeyboardInterrupt:
-            warn("Stopped by user.")
-            return
-        except Exception as e:
-            if stop_event.is_set(): return
-            warn("[" + str(attempt) + "] Error: " + str(e)[:120])
-            import time
-            time.sleep(min(attempt * 2, 30))
+    if fmt_key == "original":
+        ext = raw.suffix.lstrip(".") or "mp3"
+        out = out_folder / ("podcast." + ext)
+        if out.exists():
+            out.unlink()
+        raw.rename(out)
+        success("Downloaded: " + out.name)
+        return True
+
+    if not has_ffmpeg():
+        error("ffmpeg not found. Install it first (type i at URL prompt).")
+        warn("Raw file saved: " + str(raw))
+        return False
+    try:
+        final = _convert_audio(raw, out_folder / "podcast", fmt_key)
+        raw.unlink(missing_ok=True)
+        success("Downloaded: " + final.name)
+        return True
+    except Exception as e:
+        _estr = str(e)
+        if "3199971767" in _estr or "BEF00007" in _estr.upper():
+            error("ffmpeg could not convert \u2014 file may be DRM-protected or corrupted.")
+            info("Spotify tracks are DRM-protected and cannot be converted.")
+            info("Try a different source, or use option 1 (Original) to keep the raw file.")
+        else:
+            error("ffmpeg error: " + _estr)
+        warn("Raw file saved: " + str(raw))
+        return False
 
 
 def handle_podcast(url, out_folder):
@@ -256,13 +267,15 @@ def handle_podcast(url, out_folder):
                     break
                 warn("Invalid selection.")
             fmt = podcast_quality_menu(raw_sz=raw_sz)
-            download_podcast_url(ep_url, out_folder, fmt)
+            if fmt is not None:
+                download_podcast_url(ep_url, out_folder, fmt)
             return
 
         # direct audio
         if "audio" in ct or url.lower().endswith((".mp3",".m4a",".ogg",".opus",".flac",".wav")):
             fmt = podcast_quality_menu(raw_sz=raw_sz)
-            download_podcast_url(url, out_folder, fmt)
+            if fmt is not None:
+                download_podcast_url(url, out_folder, fmt)
             return
 
     except Exception:
@@ -287,6 +300,7 @@ def handle_podcast(url, out_folder):
                 download_yt(url, out_folder, fmt, is_audio)
         else:
             fmt = podcast_quality_menu()
-            download_podcast_url(url, out_folder, fmt)
+            if fmt is not None:
+                download_podcast_url(url, out_folder, fmt)
     except Exception as e:
         error("Cannot handle this URL: " + str(e)[:120])

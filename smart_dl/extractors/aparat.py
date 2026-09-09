@@ -141,6 +141,16 @@ def _show_aparat_info(aparat_info):
     likes = aparat_info.get("like", 0)
     duration = aparat_info.get("sabka", 0)  # duration in seconds
 
+    # Coerce numerics — the API sometimes returns them as strings.
+    try:
+        views = int(views or 0)
+    except (ValueError, TypeError):
+        views = 0
+    try:
+        likes = int(likes or 0)
+    except (ValueError, TypeError):
+        likes = 0
+
     views_s = "{:,}".format(views) if views else "?"
     likes_s = "{:,}".format(likes) if likes else "?"
 
@@ -235,11 +245,14 @@ def _download_aparat_playlist_native(playlist_data, out_folder):
                     warn("Could not fetch formats, using best quality.")
                     fmt = "bestvideo+bestaudio/best"
 
+            ok = False
             if fmt:
-                download_yt(vid_url, out_folder, fmt)
+                ok = download_yt(vid_url, out_folder, fmt)
         except Exception as e:
+            ok = False
             warn("Skipped: " + str(e)[:80])
-            skipped.append((i, vid_title, str(e)[:80]))
+        if not ok:
+            skipped.append((i, vid_title, "Download failed"))
 
     # Summary
     console.print()

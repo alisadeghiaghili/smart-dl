@@ -87,11 +87,26 @@ def _install_ffmpeg():
         cur = os.environ.get("PATH","")
         if bin_dir not in cur:
             new_path = cur.rstrip(";") + ";" + bin_dir
-            ps_script = (
-                "[System.Environment]::SetEnvironmentVariable('PATH', $args[0], 'User')"
-            )
+            # Read the *current* user PATH and back it up before overwriting,
+            # so a bad write can be restored.
+            try:
+                prev = subprocess.run(
+                    ["powershell", "-NoProfile", "-Command",
+                     "[System.Environment]::GetEnvironmentVariable('PATH','User')"],
+                    capture_output=True, text=True, timeout=20
+                ).stdout.strip()
+                backup = dest_dir / "PATH.backup.txt"
+                backup.write_text(prev, encoding="utf-8")
+            except Exception:
+                pass
+            # Embed the value in the command string, PowerShell single-quote
+            # escaped ('' for a literal '). Avoids the fragile `$args[0]`
+            # positional binding with -Command, which can bind empty/literal.
+            escaped = new_path.replace("'", "''")
+            ps_cmd = ("[System.Environment]::SetEnvironmentVariable("
+                      "'PATH', '%s', 'User')" % escaped)
             subprocess.run(
-                ["powershell", "-Command", ps_script, new_path],
+                ["powershell", "-NoProfile", "-Command", ps_cmd],
                 check=False
             )
             os.environ["PATH"] = new_path
