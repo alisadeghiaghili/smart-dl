@@ -312,6 +312,9 @@ _FA = {
     # Output folder
     "output_folder": "\u067e\u0648\u0634\u0647 \u062e\u0631\u0648\u062c",
     "output_set": "\u067e\u0648\u0634\u0647 \u062e\u0631\u0648\u062c:",
+    "default_folder": "\u067e\u0648\u0634\u0647 \u067e\u06cc\u0634\u0641\u0631\u0636:",
+    "folder_exists": "\u067e\u0648\u0634\u0647 \u0648\u062c\u0648\u062f \u062f\u0627\u0631\u062f \u2014",
+    "folder_files": "\u0641\u0627\u06cc\u0644 \u062f\u0631\u0648\u0646 \u0622\u0646",
 
     # Errors
     "error": "\u062e\u0637\u0627",

@@ -5,6 +5,22 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 ---
 
+## [3.3.0] - 2026-09-10
+
+### Added
+- Interactive UI strings use `lang.t()` (guide, prompts, errors, output folder)
+- Persian translations for output-folder prompts
+- `build_relaunch_argv()` for testable WT relaunch
+- Integration-style queue processing test
+
+### Changed
+- Web GUI downloads through `download_with_features` (shared engine + history)
+
+### Fixed
+- Windows Terminal relaunch starts `python -m smart_dl` instead of `installer.py`
+
+---
+
 ## [3.2.0] - 2026-09-10
 
 ### Added
