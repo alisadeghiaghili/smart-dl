@@ -1,4 +1,4 @@
-# SmartDL v3.4.0
+# SmartDL v3.5.0
 
 > **bad connection? hold my retry loop.**
 
@@ -213,23 +213,12 @@ smart-dl URL --quiet --log download.log
 |----------|---------|
 | YouTube (videos, playlists, channels, Shorts) | ✅ |
 | Aparat (videos, playlists) | ✅ |
-| TikTok | ✅ |
-| Instagram | ✅ |
-| Twitter / X | ✅ |
-| Reddit | ✅ |
-| Twitch | ✅ |
-| Vimeo | ✅ |
-| Dailymotion | ✅ |
-| Facebook | ✅ |
-| SoundCloud | ✅ |
-| Bilibili | ✅ |
-| Pinterest | ✅ |
-| Bluesky | ✅ |
-| Pixiv | ✅ |
-| DeviantArt | ✅ |
+| TikTok / Instagram / Twitter / Reddit / Twitch / Vimeo / … | via yt-dlp |
+| 1800+ yt-dlp sites | via yt-dlp |
 | Direct MP3/M4A links | ✅ |
 | RSS podcast feeds | ✅ |
-| 1800+ more sites | ✅ |
+| Filimo / Namasha / Radio Javan | metadata + yt-dlp |
+| Udemy / Hotmart / Teachable / … | **public metadata only** — paid/DRM content is not downloadable without your own authorized access and will usually fail |
 
 ---
 

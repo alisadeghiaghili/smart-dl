@@ -5,6 +5,23 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 ---
 
+## [3.5.0] - 2026-09-10
+
+### Added
+- Persian quick-guide strings in `lang`
+- `parallel_download_results` with per-item error reporting
+- README_fa Windows EXE instructions
+
+### Changed
+- Parallel downloads write to `.part` then rename (no partial final files)
+- One `requests.Session` per worker (thread-safe)
+- Platform support table is honest about course platforms (metadata only)
+
+### Fixed
+- Parallel cancel no longer leaves destination files behind
+
+---
+
 ## [3.4.0] - 2026-09-10
 
 ### Added

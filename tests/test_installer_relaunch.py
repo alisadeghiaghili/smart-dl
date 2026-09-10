@@ -55,7 +55,16 @@ class TestLangFallback:
             assert t("output_folder") == _FA["output_folder"]
             assert "default_folder" in _FA
             assert t("default_folder") == _FA["default_folder"]
-            # guide_* falls back to English when missing from FA
-            assert t("guide_title") == "Quick Guide"
+            assert "guide_title" in _FA
+            assert t("guide_title") == _FA["guide_title"]
+        finally:
+            set_lang("en")
+
+    def test_en_fallback_for_missing_key(self) -> None:
+        from smart_dl.lang import set_lang, t
+
+        set_lang("fa")
+        try:
+            assert t("definitely_missing_key_xyz") == "definitely_missing_key_xyz"
         finally:
             set_lang("en")
