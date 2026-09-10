@@ -375,84 +375,127 @@ def handle_playlist(url, out_folder):
         success("All retried videos downloaded successfully.")
 
 
-def download_yt(url, out_folder, fmt, is_audio=False):
-    """Download a YouTube video with retry logic."""
+def download_yt(url, out_folder, fmt, is_audio=False) -> bool:
+    """Download a video/audio stream with retry and history recording.
+
+    Parameters
+    ----------
+    url : str
+        Source URL.
+    out_folder : pathlib.Path
+        Destination directory.
+    fmt : str
+        yt-dlp format selector.
+    is_audio : bool, optional
+        Extract audio only (MP3 192k).
+
+    Returns
+    -------
+    bool
+        ``True`` only when the download completed successfully.
+    """
+    from pathlib import Path
+
+    from smart_dl.core.recorder import record_download
+    from smart_dl.core.retry import RetryGaveUp
+
     stop_event.clear()
-    prx   = get_current_proxy()
-    maxr  = DL_SETTINGS["max_retries"]
+    prx = get_current_proxy()
+    maxr = DL_SETTINGS["max_retries"]
     frags = DL_SETTINGS["fragments"]
     retry_label = "infinite" if maxr >= 999 else str(maxr)
-    print_section("Downloading", "\u2b07")
-    info("Resume enabled  \u00b7  " + retry_label + " retr" + ("y" if maxr==1 else "ies") +
-         "  \u00b7  " + str(frags) + "-thread fragments")
+    print_section("Downloading", "⬇")
+    info(
+        "Resume enabled  ·  "
+        + retry_label
+        + " retr"
+        + ("y" if maxr == 1 else "ies")
+        + "  ·  "
+        + str(frags)
+        + "-thread fragments"
+    )
 
     opts = {
-        "format":                        fmt,
-        "outtmpl":                       str(out_folder / "%(title)s [%(format_id)s].%(ext)s"),
-        "continuedl":                    True,
-        "retries":                       maxr,
-        "fragment_retries":              maxr,
-        "skip_unavailable_fragments":    False,
+        "format": fmt,
+        "outtmpl": str(out_folder / "%(title)s [%(format_id)s].%(ext)s"),
+        "continuedl": True,
+        "retries": min(maxr, 3) if maxr < 999 else 3,
+        "fragment_retries": min(maxr, 3) if maxr < 999 else 3,
+        "skip_unavailable_fragments": False,
         "concurrent_fragment_downloads": frags,
-        "socket_timeout":                30,
-        "http_chunk_size":               10 * 1024 * 1024,
-        "logger":                        _YTLogger(),
-        "progress_hooks":                [yt_hook],
-        "merge_output_format":           "mp4" if (not is_audio and "+" in fmt) else None,
-        "quiet":                         True,
-        "no_progress":                   True,
-        "file_access_retries":           10,
-        "extractor_retries":             10,
+        "socket_timeout": 30,
+        "http_chunk_size": 10 * 1024 * 1024,
+        "logger": _YTLogger(),
+        "progress_hooks": [yt_hook],
+        "merge_output_format": "mp4" if (not is_audio and "+" in fmt) else None,
+        "quiet": True,
+        "no_progress": True,
+        "file_access_retries": 10,
+        "extractor_retries": 10,
         "postprocessors": (
-            [{"key":"FFmpegExtractAudio","preferredcodec":"mp3","preferredquality":"192"}]
-            if is_audio else []
+            [
+                {
+                    "key": "FFmpegExtractAudio",
+                    "preferredcodec": "mp3",
+                    "preferredquality": "192",
+                }
+            ]
+            if is_audio
+            else []
         ),
     }
     if prx:
         opts["proxy"] = prx
-    _saved_b = get_cookie_browser()
-    if _saved_b:
-        opts["cookiesfrombrowser"] = (_saved_b, None, None, None)
+    saved_browser = get_cookie_browser()
+    if saved_browser:
+        opts["cookiesfrombrowser"] = (saved_browser, None, None, None)
 
-    def _do_download():
+    def _do_download() -> None:
         with yt_dlp.YoutubeDL(opts) as ydl:
             ydl.download([url])
 
     def _attempt_download() -> bool:
-        """Run the download with the current progress context.
-        Returns True on success. Caller decides whether to retry or surface errors."""
         try:
             retry_with_backoff(_do_download, max_retries=maxr)
             return True
         except KeyboardInterrupt:
             warn("Stopped by user.")
             return False
-        except Exception as e:
+        except RetryGaveUp as give_up:
             if stop_event.is_set():
                 return False
-            err_s = str(e)
+            error(str(give_up)[:200])
+            if give_up.reason == "dns":
+                show_no_internet_panel(host=urlparse(url).netloc or url)
+            return False
+        except Exception as exc:
+            if stop_event.is_set():
+                return False
+            err_s = str(exc)
             prx2 = get_current_proxy()
             if prx2 and ("Unable to connect to proxy" in err_s or "10061" in err_s):
                 warn("Proxy unreachable: " + prx2)
                 ans = Prompt.ask(
                     "  [bold yellow]Clear proxy and retry?[/bold yellow] [dim](y / n)[/dim]",
-                    default="y").strip().lower()
+                    default="y",
+                ).strip().lower()
                 if ans != "n":
                     from smart_dl.core.proxy import clear_proxy
+
                     clear_proxy()
                     opts.pop("proxy", None)
                     try:
                         retry_with_backoff(_do_download, max_retries=maxr)
                         return True
-                    except Exception as e2:
-                        error(str(e2)[:200])
-                        hint = diagnose_error(e2)
+                    except Exception as exc2:
+                        error(str(exc2)[:200])
+                        hint = diagnose_error(exc2)
                         if hint:
                             info(hint)
                         return False
                 return False
-            error(str(e)[:200])
-            hint = diagnose_error(e)
+            error(err_s[:200])
+            hint = diagnose_error(exc)
             if hint:
                 info(hint)
             return False
@@ -462,12 +505,24 @@ def download_yt(url, out_folder, fmt, is_audio=False):
         _progress_ctx["task"] = prog.add_task("[cyan]Downloading...[/cyan]", total=None)
         _progress_ctx["obj"] = prog
         try:
-            _attempt_download()
+            ok = _attempt_download()
         finally:
             _progress_ctx["task"] = None
             _progress_ctx["obj"] = None
 
-    success("Download complete!  \u2192  " + str(out_folder))
+    out_path = _progress_ctx.pop("outfile", None)
+    record_download(
+        url,
+        success=ok,
+        title=Path(str(out_path)).name if out_path else "",
+        file_path=Path(str(out_path)) if out_path else None,
+        format_str=fmt,
+        is_audio=is_audio,
+        error="" if ok else "download failed",
+    )
+    if ok:
+        success("Download complete!  →  " + str(out_folder))
+    return ok
 
 
 def download_thumbnail(url, out_folder, info_dict=None):

@@ -126,7 +126,7 @@ def podcast_quality_menu(raw_sz=None):
         try:
             sel = Prompt.ask("  [bold yellow]Select quality #[/bold yellow]", default="1").strip()
         except (KeyboardInterrupt, EOFError):
-            return None, False
+            return None
         if sel.isdigit() and 1 <= int(sel) <= len(rows):
             return rows[int(sel)-1]
         warn("Enter a number between 1 and " + str(len(rows)) + ".")
@@ -186,7 +186,8 @@ def download_podcast_url(url, out_folder, fmt_tuple):
             raw = candidates[0] if candidates else raw
 
             if fmt_key == "original":
-                out = out_folder / ("podcast." + raw.suffix.lstrip(".") or "mp3")
+                suffix = raw.suffix.lstrip(".") or "mp3"
+                out = out_folder / ("podcast." + suffix)
                 raw.rename(out)
                 success("Downloaded: " + out.name)
             else:
@@ -256,12 +257,16 @@ def handle_podcast(url, out_folder):
                     break
                 warn("Invalid selection.")
             fmt = podcast_quality_menu(raw_sz=raw_sz)
+            if fmt is None:
+                return
             download_podcast_url(ep_url, out_folder, fmt)
             return
 
         # direct audio
         if "audio" in ct or url.lower().endswith((".mp3",".m4a",".ogg",".opus",".flac",".wav")):
             fmt = podcast_quality_menu(raw_sz=raw_sz)
+            if fmt is None:
+                return
             download_podcast_url(url, out_folder, fmt)
             return
 
@@ -287,6 +292,8 @@ def handle_podcast(url, out_folder):
                 download_yt(url, out_folder, fmt, is_audio)
         else:
             fmt = podcast_quality_menu()
+            if fmt is None:
+                return
             download_podcast_url(url, out_folder, fmt)
     except Exception as e:
         error("Cannot handle this URL: " + str(e)[:120])

@@ -106,7 +106,9 @@ def main():
             cookie_settings_menu()
             continue
 
-        if not url.startswith(("http://","https://","ftp://")):
+        from smart_dl.utils import is_http_url
+
+        if not is_http_url(url):
             warn("Not a valid URL. Start with http:// or https://")
             continue
 

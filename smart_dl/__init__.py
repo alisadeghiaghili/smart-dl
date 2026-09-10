@@ -1,55 +1,139 @@
 """SmartDL — Resilient media downloader for unstable networks."""
+
+from __future__ import annotations
+
 import os
 import subprocess
 import sys
-import time
 from importlib.util import find_spec
+from typing import Callable, Dict, List, Optional
 
-VERSION = "3.0.0"
+VERSION = "3.1.0"
+
+__all__ = ["VERSION", "ensure_deps", "deps_available", "missing_deps"]
+
+_RUNTIME_DEPS: Dict[str, str] = {
+    "yt_dlp": "yt-dlp",
+    "requests": "requests",
+    "rich": "rich",
+}
 
 
-def _deps_skipped() -> bool:
-    """When SMARTDL_NO_DEPS is set, skip auto-install. Used by tests and CI."""
-    return bool(os.environ.get("SMARTDL_NO_DEPS"))
+def _auto_install_allowed() -> bool:
+    """Return True when silent auto-install is explicitly enabled."""
+    return bool(os.environ.get("SMARTDL_AUTO_DEPS"))
 
 
-def ensure_deps():
-    """Auto-install missing Python packages on first run.
+def deps_available() -> bool:
+    """Check whether all runtime dependencies import cleanly.
 
-    Set the SMARTDL_NO_DEPS environment variable to skip auto-install
-    (useful for tests, CI, and environments where dependencies are
-    managed by other means).
+    Returns
+    -------
+    bool
+        ``True`` if yt-dlp, requests, and rich are importable.
     """
-    if _deps_skipped():
-        return
-    deps = {"yt_dlp": "yt-dlp", "requests": "requests", "rich": "rich"}
-    missing = [(mod, pkg) for mod, pkg in deps.items() if find_spec(mod) is None]
+    return all(find_spec(mod) is not None for mod in _RUNTIME_DEPS)
+
+
+def missing_deps() -> List[str]:
+    """List distribution names of missing runtime dependencies.
+
+    Returns
+    -------
+    list of str
+        Pip package names, empty when everything is present.
+    """
+    return [pkg for mod, pkg in _RUNTIME_DEPS.items() if find_spec(mod) is None]
+
+
+def ensure_deps(
+    *,
+    allow_auto_install: Optional[bool] = None,
+    installer: Optional[Callable[[str], int]] = None,
+) -> bool:
+    """Ensure runtime dependencies are installed.
+
+    By default this **does not** run pip. It only auto-installs when
+    ``SMARTDL_AUTO_DEPS=1`` is set or *allow_auto_install* is ``True``.
+
+    Parameters
+    ----------
+    allow_auto_install : bool, optional
+        Override the environment flag. ``True`` enables pip install.
+    installer : Callable[[str], int], optional
+        Custom installer taking a package name and returning an exit code.
+        Defaults to ``python -m pip install``.
+
+    Returns
+    -------
+    bool
+        ``True`` if all dependencies are present after the call.
+
+    Examples
+    --------
+    >>> ensure_deps(allow_auto_install=False)  # doctest: +SKIP
+    True
+    """
+    missing = missing_deps()
     if not missing:
-        return
-    total = len(missing)
-    W = 30
-    def _bar(done):
-        f = int(W * done / total) if total else 0
-        return "[" + "\u2588" * f + "\u2591" * (W - f) + "]"
-    names = ", ".join(p for _, p in missing)
-    print("\n  SmartDL needs " + str(total) + " missing package(s): " + names + "\n")
-    SPIN = ["\u280b","\u2819","\u2839","\u2838","\u283c","\u2834","\u2826","\u2827","\u2807","\u280f"]
-    for i, (mod, pkg) in enumerate(missing, 1):
-        proc = subprocess.Popen(
-            [sys.executable, "-m", "pip", "install", "--quiet", pkg],
-            stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL,
+        return True
+
+    if allow_auto_install is None:
+        allow_auto_install = _auto_install_allowed()
+    if not allow_auto_install:
+        print(
+            "\n  Missing packages: "
+            + ", ".join(missing)
+            + "\n  Install with: pip install "
+            + " ".join(missing)
+            + "\n  Or set SMARTDL_AUTO_DEPS=1 to install automatically.\n"
         )
-        s = 0
-        while proc.poll() is None:
-            sys.stdout.write("\r  " + _bar(i-1) + "  " + str(i) + "/" + str(total) + "  " + SPIN[s % len(SPIN)] + " Installing: " + pkg)
-            sys.stdout.flush(); s += 1; time.sleep(0.1)
-        if proc.returncode != 0:
+        return False
+
+    def _default_installer(pkg: str) -> int:
+        proc = subprocess.run(
+            [sys.executable, "-m", "pip", "install", "--quiet", pkg],
+            check=False,
+        )
+        return int(proc.returncode)
+
+    install = installer or _default_installer
+    total = len(missing)
+    width = 30
+
+    def _bar(done: int) -> str:
+        filled = int(width * done / total) if total else 0
+        return "[" + "█" * filled + "░" * (width - filled) + "]"
+
+    print("\n  SmartDL needs " + str(total) + " missing package(s): " + ", ".join(missing) + "\n")
+    for index, pkg in enumerate(missing, 1):
+        sys.stdout.write(
+            "\r  "
+            + _bar(index - 1)
+            + "  "
+            + str(index)
+            + "/"
+            + str(total)
+            + "  Installing: "
+            + pkg
+        )
+        sys.stdout.flush()
+        code = install(pkg)
+        if code != 0:
             print("\n  [ERROR] Failed to install " + pkg + ". Try: pip install " + pkg)
-            sys.exit(1)
-        sys.stdout.write("\r  " + _bar(i) + "  " + str(i) + "/" + str(total) + "  \u2713 Installed: " + pkg + " " * 15 + "\n")
+            return False
+        sys.stdout.write(
+            "\r  "
+            + _bar(index)
+            + "  "
+            + str(index)
+            + "/"
+            + str(total)
+            + "  ✓ Installed: "
+            + pkg
+            + " " * 15
+            + "\n"
+        )
         sys.stdout.flush()
     print("  All " + str(total) + " package(s) installed successfully.\n")
-
-
-if not _deps_skipped():
-    ensure_deps()
+    return deps_available()

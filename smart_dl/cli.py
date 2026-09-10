@@ -181,8 +181,8 @@ def run_cli():
         set_theme(args.theme)
 
     if args.list_themes:
-        from smart_dl.ui.themes import list_themes
         from smart_dl.ui import console
+        from smart_dl.ui.themes import list_themes
         console.print("[bold cyan]Available Themes:[/bold cyan]")
         for key, name in list_themes():
             console.print(f"  [green]{key:20s}[/green] {name}")
@@ -196,6 +196,11 @@ def run_cli():
     if args.lang:
         from smart_dl.lang import set_lang
         set_lang(args.lang)
+
+    # ─── Logging ──────────────────────────────────────────────────────────────
+    if args.log:
+        from smart_dl.core.logging import setup_logging
+        setup_logging(args.log, verbose=not args.quiet)
 
     # ─── Proxy ────────────────────────────────────────────────────────────────
     if args.proxy:
@@ -334,13 +339,20 @@ def run_cli():
         sys.exit(0)
 
     # ─── Output directory ─────────────────────────────────────────────────────
-    out_folder = Path(args.output) if args.output else Path.home() / "Downloads" / "SmartDL"
-    out_folder.mkdir(parents=True, exist_ok=True)
+    from smart_dl.core.paths import get_default_download_dir
+
+    out_folder = Path(args.output) if args.output else get_default_download_dir()
+    try:
+        out_folder.mkdir(parents=True, exist_ok=True)
+    except OSError as exc:
+        print(f"Error: cannot create output directory {out_folder}: {exc}", file=sys.stderr)
+        sys.exit(1)
 
     # ─── Process URLs ─────────────────────────────────────────────────────────
     from smart_dl.ui import error, info, success, warn
     from smart_dl.utils import is_aparat_url, is_playlist_url, is_podcast_url, is_youtube_url
 
+    failures = 0
     for url in urls:
         try:
             # ── List subtitles ────────────────────────────────────────────────
@@ -369,11 +381,11 @@ def run_cli():
                     download_subtitles_for_video(url, out_folder, langs=langs, embed=args.embed_subs)
                 continue
 
-            # ── Thumbnail only ────────────────────────────────────────────────
-            if args.thumbnail and not args.urls:
+            # ── Thumbnail ─────────────────────────────────────────────────────
+            if args.thumbnail:
                 from smart_dl.extractors.youtube import download_thumbnail
+
                 download_thumbnail(url, out_folder)
-                continue
 
             # ── Torrent ───────────────────────────────────────────────────────
             if is_magnet_link(url) or is_torrent_file(url):
@@ -405,12 +417,11 @@ def run_cli():
             # ── YouTube ───────────────────────────────────────────────────────
             elif is_youtube_url(url):
                 from smart_dl.core.downloader import download_with_features
-                fmt = "bestvideo+bestaudio/best"
+                from smart_dl.utils import quality_to_format
+
+                fmt = quality_to_format(args.quality)
                 is_audio = args.audio_only
-                if args.quality != "best" and args.quality.isdigit():
-                    h = int(args.quality)
-                    fmt = f"bestvideo[height<={h}]+bestaudio/best"
-                download_with_features(
+                ok = download_with_features(
                     url, out_folder, fmt=fmt, is_audio=is_audio,
                     clip=args.clip, sponsorblock=args.sponsorblock,
                     audio_format=args.audio_format, audio_quality=args.audio_quality,
@@ -419,6 +430,8 @@ def run_cli():
                     geo_bypass=args.geo_bypass, impersonate=args.impersonate,
                     output_template=args.output_template, quiet=args.quiet,
                 )
+                if not ok:
+                    failures += 1
 
             # ── Podcasts ──────────────────────────────────────────────────────
             elif is_podcast_url(url):
@@ -432,9 +445,11 @@ def run_cli():
                 if platform:
                     info(f"Detected: {platform}")
                 from smart_dl.core.downloader import download_with_features
-                fmt = "bestvideo+bestaudio/best"
+                from smart_dl.utils import quality_to_format
+
+                fmt = quality_to_format(args.quality)
                 is_audio = args.audio_only
-                download_with_features(
+                ok = download_with_features(
                     url, out_folder, fmt=fmt, is_audio=is_audio,
                     clip=args.clip, sponsorblock=args.sponsorblock,
                     audio_format=args.audio_format, audio_quality=args.audio_quality,
@@ -442,13 +457,19 @@ def run_cli():
                     embed_thumbnail=args.embed_thumbnail, embed_subs=args.embed_subs,
                     quiet=args.quiet,
                 )
+                if not ok:
+                    failures += 1
 
         except KeyboardInterrupt:
             warn("Interrupted.")
             break
         except Exception as e:
             error(f"Error: {str(e)[:200]}")
+            failures += 1
 
+    if failures:
+        error(f"Finished with {failures} failed download(s).")
+        sys.exit(1)
     success("All done!")
 
 
@@ -560,12 +581,21 @@ def _print_diagnostics() -> None:
 
 def _handle_queue(cmds):
     """Handle queue commands."""
-    from smart_dl.core.queue import add_to_queue, clear_queue, get_queue, get_queue_stats, init_db
+    from smart_dl.core.queue import (
+        add_to_queue,
+        clear_queue,
+        get_queue,
+        get_queue_stats,
+        init_db,
+        pause_queue,
+        process_queue,
+        resume_queue,
+    )
     init_db()
 
     if not cmds:
         from smart_dl.ui import warn
-        warn("Usage: --queue add URL... | start | pause | list | clear")
+        warn("Usage: --queue add URL... | start | pause | resume | list | stats | clear")
         return
 
     action = cmds[0].lower()
@@ -580,6 +610,61 @@ def _handle_queue(cmds):
         from smart_dl.ui import success
         success(f"Added {count} URL(s) to queue 📥.")
 
+    elif action == "start":
+        from pathlib import Path
+
+        from smart_dl.core.paths import get_default_download_dir
+        from smart_dl.core.recorder import record_download
+        from smart_dl.extractors.youtube import download_yt, get_yt_formats, yt_quality_menu
+        from smart_dl.settings import DL_SETTINGS
+        from smart_dl.ui import info, success
+        from smart_dl.ui.progress import stop_event
+
+        out_folder = get_default_download_dir()
+        out_folder.mkdir(parents=True, exist_ok=True)
+        info(f"Processing queue → {out_folder}")
+
+        def _download_item(item):
+            url = item["url"]
+            info(f"Queue #{item['id']}: {url[:80]}")
+            stop_event.clear()
+            fmt = item.get("format_str") or "best"
+            is_audio = bool(item.get("is_audio"))
+            if fmt == "best":
+                vid = get_yt_formats(url)
+                if not vid:
+                    return False
+                chosen, is_audio = yt_quality_menu(vid)
+                if chosen is None:
+                    return False
+                fmt = chosen
+            return download_yt(url, Path(out_folder), fmt, is_audio)
+
+        result = process_queue(
+            _download_item, should_stop=stop_event.is_set
+        )
+        success(
+            f"Queue done: {result['completed']} ok, {result['failed']} failed"
+            + (", stopped early" if result["stopped"] else "")
+        )
+        del DL_SETTINGS, record_download
+
+    elif action == "pause":
+        from smart_dl.ui import info
+        from smart_dl.ui.progress import stop_event
+
+        stop_event.set()
+        paused = pause_queue()
+        info(f"Pause requested; {paused} active item(s) marked paused.")
+
+    elif action == "resume":
+        from smart_dl.ui import info, success
+        from smart_dl.ui.progress import stop_event
+
+        stop_event.clear()
+        resumed = resume_queue()
+        info(f"Resumed {resumed} paused item(s). Re-run --queue start to process.")
+
     elif action == "list":
         items = get_queue()
         if not items:
@@ -593,7 +678,7 @@ def _handle_queue(cmds):
         t.add_column("Status", width=10)
         t.add_column("Priority", width=8)
         for item in items:
-            status_style = {"pending": "[yellow]", "active": "[cyan]", "completed": "[green]", "failed": "[red]"}.get(item["status"], "")
+            status_style = {"pending": "[yellow]", "active": "[cyan]", "completed": "[green]", "failed": "[red]", "paused": "[magenta]"}.get(item["status"], "")
             t.add_row(str(item["id"]), item["url"][:50], status_style + item["status"] + "[/]", str(item["priority"]))
         from smart_dl.ui import console
         console.print(t)
@@ -606,7 +691,18 @@ def _handle_queue(cmds):
     elif action == "stats":
         stats = get_queue_stats()
         from smart_dl.ui import console
-        console.print(f"📊 [bold cyan]Queue Stats:[/bold cyan] {stats['total']} total, [yellow]{stats['pending']} pending[/yellow], [blue]{stats['active']} active[/blue], [green]{stats['completed']} completed[/green], [red]{stats['failed']} failed[/red]")
+        console.print(
+            f"📊 [bold cyan]Queue Stats:[/bold cyan] {stats['total']} total, "
+            f"[yellow]{stats['pending']} pending[/yellow], "
+            f"[blue]{stats['active']} active[/blue], "
+            f"[green]{stats['completed']} completed[/green], "
+            f"[red]{stats['failed']} failed[/red], "
+            f"[magenta]{stats.get('paused', 0)} paused[/magenta]"
+        )
+
+    else:
+        from smart_dl.ui import warn
+        warn("Unknown queue command. Usage: --queue add|start|pause|resume|list|stats|clear")
 
 
 def _handle_history(cmds):

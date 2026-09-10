@@ -246,8 +246,31 @@ def build_download_opts(
 
 
 def download_with_features(url, out_folder, fmt="bestvideo+bestaudio/best",
-                           is_audio=False, **kwargs):
-    """Download with all features enabled."""
+                           is_audio=False, **kwargs) -> bool:
+    """Download with feature flags and history recording.
+
+    Parameters
+    ----------
+    url : str
+        Source URL.
+    out_folder : pathlib.Path
+        Destination directory.
+    fmt : str, optional
+        yt-dlp format selector.
+    is_audio : bool, optional
+        Audio-only extraction.
+    **kwargs
+        Passed to :func:`build_download_opts`.
+
+    Returns
+    -------
+    bool
+        ``True`` only when the download completed successfully.
+    """
+    from pathlib import Path
+
+    from smart_dl.core.recorder import record_download
+    from smart_dl.core.retry import RetryGaveUp
     from smart_dl.extractors.youtube import _YTLogger
 
     stop_event.clear()
@@ -259,29 +282,49 @@ def download_with_features(url, out_folder, fmt="bestvideo+bestaudio/best",
     opts["progress_hooks"] = [yt_hook]
     opts["quiet"] = True
     opts["no_progress"] = True
+    opts["retries"] = min(maxr, 3) if maxr < 999 else 3
+    opts["fragment_retries"] = opts["retries"]
 
-    def _do_download():
+    def _do_download() -> None:
         with yt_dlp.YoutubeDL(opts) as ydl:
             ydl.download([url])
 
+    ok = False
     with make_progress() as prog:
         _progress_ctx["last"] = 0
         _progress_ctx["task"] = prog.add_task("[cyan]Downloading...[/cyan]", total=None)
         _progress_ctx["obj"] = prog
         try:
             retry_with_backoff(_do_download, max_retries=maxr)
+            ok = True
         except KeyboardInterrupt:
             warn("Stopped by user.")
-            return
-        except Exception as e:
-            if stop_event.is_set(): return
-            error(str(e)[:200])
-            return
+            ok = False
+        except RetryGaveUp as give_up:
+            if not stop_event.is_set():
+                error(str(give_up)[:200])
+            ok = False
+        except Exception as exc:
+            if not stop_event.is_set():
+                error(str(exc)[:200])
+            ok = False
         finally:
             _progress_ctx["task"] = None
             _progress_ctx["obj"] = None
 
-    success("Download complete!  \u2192  " + str(out_folder))
+    out_path = _progress_ctx.pop("outfile", None)
+    record_download(
+        url,
+        success=ok,
+        title=Path(str(out_path)).name if out_path else "",
+        file_path=Path(str(out_path)) if out_path else None,
+        format_str=fmt,
+        is_audio=is_audio,
+        error="" if ok else "download failed",
+    )
+    if ok:
+        success("Download complete!  →  " + str(out_folder))
+    return ok
 
 
 class _QuietLogger:

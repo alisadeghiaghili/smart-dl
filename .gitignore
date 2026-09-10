@@ -34,9 +34,9 @@ Downloads/
 .DS_Store
 Thumbs.db
 
-# MiMoCode (AI assistant)
-.mimocode/
-*.mimo
+# Local editor/agent scratch
+.agents/
+*.local
 
 # Test artifacts
 .pytest_cache/

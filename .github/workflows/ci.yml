@@ -32,39 +32,7 @@ jobs:
 
       - name: Check syntax
         run: |
-          python -m py_compile smart_dl/__init__.py
-          python -m py_compile smart_dl/__main__.py
-          python -m py_compile smart_dl/cli.py
-          python -m py_compile smart_dl/main.py
-          python -m py_compile smart_dl/utils.py
-          python -m py_compile smart_dl/settings.py
-          python -m py_compile smart_dl/core/__init__.py
-          python -m py_compile smart_dl/core/config.py
-          python -m py_compile smart_dl/core/retry.py
-          python -m py_compile smart_dl/core/network.py
-          python -m py_compile smart_dl/core/proxy.py
-          python -m py_compile smart_dl/core/cookies.py
-          python -m py_compile smart_dl/core/installer.py
-          python -m py_compile smart_dl/core/downloader.py
-          python -m py_compile smart_dl/core/queue.py
-          python -m py_compile smart_dl/core/history.py
-          python -m py_compile smart_dl/core/subscriptions.py
-          python -m py_compile smart_dl/core/portable.py
-          python -m py_compile smart_dl/core/manager.py
-          python -m py_compile smart_dl/core/logging.py
-          python -m py_compile smart_dl/extractors/__init__.py
-          python -m py_compile smart_dl/extractors/youtube.py
-          python -m py_compile smart_dl/extractors/aparat.py
-          python -m py_compile smart_dl/extractors/podcast.py
-          python -m py_compile smart_dl/extractors/subtitles.py
-          python -m py_compile smart_dl/extractors/general.py
-          python -m py_compile smart_dl/extractors/gallery.py
-          python -m py_compile smart_dl/extractors/torrent.py
-          python -m py_compile smart_dl/ui/__init__.py
-          python -m py_compile smart_dl/ui/logo.py
-          python -m py_compile smart_dl/ui/progress.py
-          python -m py_compile smart_dl/ui/themes.py
-          python -m py_compile smart_dl/lang/__init__.py
+          python -m compileall -q smart_dl tests
 
       - name: Run tests
         run: |
