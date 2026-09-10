@@ -478,27 +478,37 @@ def run_cli():
                 from smart_dl.extractors.podcast import handle_podcast
                 handle_podcast(url, out_folder)
 
-            # ── General (any yt-dlp site) ─────────────────────────────────────
+            # ── Education (Maktabkhooneh / Faradars) ──────────────────────────
             else:
-                from smart_dl.extractors.general import detect_platform
-                platform = detect_platform(url)
-                if platform:
-                    info(f"Detected: {platform}")
-                from smart_dl.core.downloader import download_with_features
-                from smart_dl.utils import quality_to_format
-
-                fmt = quality_to_format(args.quality)
-                is_audio = args.audio_only
-                ok = download_with_features(
-                    url, out_folder, fmt=fmt, is_audio=is_audio,
-                    clip=args.clip, sponsorblock=args.sponsorblock,
-                    audio_format=args.audio_format, audio_quality=args.audio_quality,
-                    output_format=args.format, embed_metadata=args.embed_metadata,
-                    embed_thumbnail=args.embed_thumbnail, embed_subs=args.embed_subs,
-                    quiet=args.quiet,
+                from smart_dl.extractors.education import (
+                    download_education_course,
+                    is_education_url,
                 )
-                if not ok:
-                    failures += 1
+
+                if is_education_url(url):
+                    ok = download_education_course(url, out_folder)
+                    if not ok:
+                        failures += 1
+                else:
+                    from smart_dl.extractors.general import detect_platform
+                    platform = detect_platform(url)
+                    if platform:
+                        info(f"Detected: {platform}")
+                    from smart_dl.core.downloader import download_with_features
+                    from smart_dl.utils import quality_to_format
+
+                    fmt = quality_to_format(args.quality)
+                    is_audio = args.audio_only
+                    ok = download_with_features(
+                        url, out_folder, fmt=fmt, is_audio=is_audio,
+                        clip=args.clip, sponsorblock=args.sponsorblock,
+                        audio_format=args.audio_format, audio_quality=args.audio_quality,
+                        output_format=args.format, embed_metadata=args.embed_metadata,
+                        embed_thumbnail=args.embed_thumbnail, embed_subs=args.embed_subs,
+                        quiet=args.quiet,
+                    )
+                    if not ok:
+                        failures += 1
 
         except KeyboardInterrupt:
             warn("Interrupted.")

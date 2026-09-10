@@ -1,4 +1,4 @@
-# SmartDL v3.5.0
+# SmartDL v3.6.0
 
 > **bad connection? hold my retry loop.**
 
@@ -218,6 +218,7 @@ smart-dl URL --quiet --log download.log
 | Direct MP3/M4A links | ✅ |
 | RSS podcast feeds | ✅ |
 | Filimo / Namasha / Radio Javan | metadata + yt-dlp |
+| Maktabkhooneh / Faradars | course outline + lessons via cookies (paid = your logged-in session) |
 | Udemy / Hotmart / Teachable / … | **public metadata only** — paid/DRM content is not downloadable without your own authorized access and will usually fail |
 
 ---

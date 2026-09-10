@@ -16,6 +16,10 @@ from smart_dl.core.proxy import proxy_menu, proxy_step
 from smart_dl.core.retry import diagnose_error
 from smart_dl.extractors.aparat import download_aparat, handle_aparat_playlist
 from smart_dl.extractors.courses import download_course, is_course_url
+from smart_dl.extractors.education import (
+    download_education_course,
+    is_education_url,
+)
 from smart_dl.extractors.general import detect_platform
 from smart_dl.extractors.podcast import handle_podcast
 from smart_dl.extractors.youtube import (
@@ -177,6 +181,9 @@ def main() -> None:
 
             elif is_podcast_url(url):
                 handle_podcast(url, out_folder)
+
+            elif is_education_url(url):
+                download_education_course(url, out_folder)
 
             else:
                 from smart_dl.extractors.persian import (
