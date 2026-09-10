@@ -3,6 +3,7 @@ import argparse
 import os
 import sys
 from pathlib import Path
+from typing import Optional
 
 from smart_dl import VERSION
 from smart_dl.extractors.torrent import is_magnet_link, is_torrent_file
@@ -143,9 +144,9 @@ def build_parser():
 
     # Education courses
     parser.add_argument("--all", action="store_true",
-                        help="Download all lessons on an education course URL")
+                        help="Download every education lesson (no cap; default is capped)")
     parser.add_argument("--max-lessons", type=int, default=None,
-                        help="Cap number of education course lessons to download")
+                        help="Cap number of education course lessons (default: 20)")
 
     # Torrent
     parser.add_argument("--torrent", type=str, default=None,
@@ -484,7 +485,7 @@ def run_cli():
                 from smart_dl.extractors.podcast import handle_podcast
                 handle_podcast(url, out_folder)
 
-            # ── Education (Maktabkhooneh / Faradars) ──────────────────────────
+            # ── Education (Maktabkhooneh / Faradars / Coursera) ───────────────
             else:
                 from smart_dl.extractors.education import (
                     download_education_course,
@@ -492,13 +493,10 @@ def run_cli():
                 )
 
                 if is_education_url(url):
-                    max_lessons = args.max_lessons
-                    if args.all:
-                        max_lessons = None
-                    elif max_lessons is None and not args.all:
-                        # Default: outline only for course landing pages is
-                        # still a full download; use --max-lessons to cap.
-                        max_lessons = None
+                    max_lessons = resolve_education_max_lessons(
+                        all_lessons=args.all,
+                        max_lessons=args.max_lessons,
+                    )
                     ok = download_education_course(
                         url, out_folder, max_lessons=max_lessons
                     )
@@ -536,6 +534,64 @@ def run_cli():
         error(f"Finished with {failures} failed download(s).")
         sys.exit(1)
     success("All done!")
+
+
+def resolve_education_max_lessons(
+    *,
+    all_lessons: bool,
+    max_lessons: Optional[int],
+) -> Optional[int]:
+    """Resolve the education lesson cap from CLI flags.
+
+    Parameters
+    ----------
+    all_lessons : bool
+        ``--all`` was passed (remove the cap).
+    max_lessons : int, optional
+        Explicit ``--max-lessons`` value.
+
+    Returns
+    -------
+    int or None
+        ``None`` means unlimited; otherwise a non-negative cap.
+    """
+    if all_lessons:
+        return None
+    if max_lessons is not None:
+        return max(0, int(max_lessons))
+    return 20
+
+
+def queue_download_item(item, out_folder) -> bool:
+    """Download one queue row without opening interactive menus.
+
+    Parameters
+    ----------
+    item : dict
+        Queue row with ``url``, ``format_str``, ``is_audio``.
+    out_folder : pathlib.Path
+        Destination directory.
+
+    Returns
+    -------
+    bool
+        ``True`` on success.
+    """
+    from pathlib import Path
+
+    from smart_dl.extractors.youtube import download_yt
+    from smart_dl.ui import info
+    from smart_dl.ui.progress import stop_event
+    from smart_dl.utils import quality_to_format
+
+    url = item["url"]
+    info(f"Queue #{item.get('id')}: {url[:80]}")
+    stop_event.clear()
+    fmt = item.get("format_str") or "best"
+    is_audio = bool(item.get("is_audio"))
+    if fmt in ("best", "", None):
+        fmt = quality_to_format("best")
+    return download_yt(url, Path(out_folder), fmt, is_audio)
 
 
 def _tool_version(tool: str) -> str:
@@ -676,12 +732,8 @@ def _handle_queue(cmds):
         success(f"Added {count} URL(s) to queue 📥.")
 
     elif action == "start":
-        from pathlib import Path
-
         from smart_dl.core.paths import get_default_download_dir
-        from smart_dl.core.recorder import record_download
-        from smart_dl.extractors.youtube import download_yt, get_yt_formats, yt_quality_menu
-        from smart_dl.settings import DL_SETTINGS
+        from smart_dl.core.queue import process_queue
         from smart_dl.ui import info, success
         from smart_dl.ui.progress import stop_event
 
@@ -689,30 +741,14 @@ def _handle_queue(cmds):
         out_folder.mkdir(parents=True, exist_ok=True)
         info(f"Processing queue → {out_folder}")
 
-        def _download_item(item):
-            url = item["url"]
-            info(f"Queue #{item['id']}: {url[:80]}")
-            stop_event.clear()
-            fmt = item.get("format_str") or "best"
-            is_audio = bool(item.get("is_audio"))
-            if fmt == "best":
-                vid = get_yt_formats(url)
-                if not vid:
-                    return False
-                chosen, is_audio = yt_quality_menu(vid)
-                if chosen is None:
-                    return False
-                fmt = chosen
-            return download_yt(url, Path(out_folder), fmt, is_audio)
-
         result = process_queue(
-            _download_item, should_stop=stop_event.is_set
+            lambda item: queue_download_item(item, out_folder),
+            should_stop=stop_event.is_set,
         )
         success(
             f"Queue done: {result['completed']} ok, {result['failed']} failed"
             + (", stopped early" if result["stopped"] else "")
         )
-        del DL_SETTINGS, record_download
 
     elif action == "pause":
         from smart_dl.ui import info

@@ -5,6 +5,17 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 ---
 
+## [3.9.1] - 2026-09-10
+
+### Fixed
+- `--queue start` no longer opens the interactive quality menu (uses best format)
+- `--all` now actually lifts the default education lesson cap (default cap: 20)
+- Education course landing pages skip the wasted yt-dlp probe
+- Interactive education bulk download asks how many lessons before starting
+- Removed dead CLI branches and unused imports in queue start
+
+---
+
 ## [3.9.0] - 2026-09-10
 
 ### Added

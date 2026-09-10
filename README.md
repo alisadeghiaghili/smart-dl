@@ -1,4 +1,4 @@
-# SmartDL v3.9.0
+# SmartDL v3.9.1
 
 > **bad connection? hold my retry loop.**
 
@@ -181,7 +181,7 @@ smart-dl https://www.pixiv.net/artworks/12345
 # Education courses (Maktabkhooneh / Faradars / Coursera)
 smart-dl "https://www.coursera.org/learn/machine-learning"
 smart-dl "https://www.coursera.org/learn/machine-learning" --max-lessons 5
-smart-dl "https://maktabkhooneh.org/course/..." --all
+smart-dl "https://maktabkhooneh.org/course/..." --all   # remove the 20-lesson default cap
 
 # Torrent
 smart-dl --torrent magnet:?xt=urn:btih:...
