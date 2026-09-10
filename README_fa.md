@@ -1,4 +1,4 @@
-# SmartDL v3.0
+# SmartDL v3.4.0
 
 > **اتصال ضعیفه؟ حلقه retry من رو نگه دار.**
 
@@ -78,6 +78,12 @@ winget install Gyan.FFmpeg
 ```bash
 pip install smart-dl
 ```
+
+### گزینه ۲: EXE پرتابل ویندوز (بدون نصب Python)
+
+از صفحه [Releases](https://github.com/alisadeghiaghili/smart-dl/releases) فایل `SmartDL-v*-win-x64.zip` را بگیرید، `SHA256SUMS.txt` را چک کنید، استخراج و `SmartDL.exe` را اجرا کنید.
+
+**اگر SmartScreen ظاهر شد:** فایل امضا نشده است — **More info → Run anyway** یا از pip استفاده کنید.
 
 ### گزینه ۲: کلون و اجرا
 
