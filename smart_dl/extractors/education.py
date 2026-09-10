@@ -658,6 +658,26 @@ def parse_course_outline(url: str, html: Optional[str] = None) -> CourseOutline:
     return CourseOutline(platform=platform, course_url=url, title=title, lessons=lessons)
 
 
+def _looks_like_lesson_url(url: str) -> bool:
+    """Heuristic: URL is a single lesson/video, not a course landing page.
+
+    Parameters
+    ----------
+    url : str
+        Absolute URL.
+
+    Returns
+    -------
+    bool
+        ``True`` when the path contains a known lesson marker.
+    """
+    path = urlparse(url or "").path.lower()
+    return any(
+        marker in path
+        for marker in ("/lecture/", "/lesson/", "/ویدیو-", "/video-")
+    )
+
+
 def download_education_course(
     url: str,
     out_folder: Path,
@@ -667,8 +687,9 @@ def download_education_course(
 ) -> bool:
     """Download lessons from an education course URL.
 
-    Single lesson URLs go straight to yt-dlp. Course landing pages list
-    lessons first; each lesson is downloaded with the same format.
+    Lesson URLs go straight to yt-dlp. Course landing pages skip the
+    wasted yt-dlp probe and list lessons first; each lesson is downloaded
+    with the same format.
 
     Parameters
     ----------
@@ -709,10 +730,12 @@ def download_education_course(
             "session — press C at the URL prompt after a bot/login error."
         )
 
-    # Direct lesson / single media URL: try yt-dlp formats first.
-    info_dict = get_yt_formats(url)
-    if info_dict and info_dict.get("formats"):
-        return download_yt(url, out_folder, fmt, False)
+    # Lesson / single media URL: try yt-dlp formats first.
+    # Course landing pages must NOT probe yt-dlp (SPA shells waste time).
+    if _looks_like_lesson_url(url):
+        info_dict = get_yt_formats(url)
+        if info_dict and info_dict.get("formats"):
+            return download_yt(url, out_folder, fmt, False)
 
     outline = parse_course_outline(url)
     if not outline.lessons:
@@ -728,12 +751,10 @@ def download_education_course(
     info(f"Found {len(outline)} lesson(s)" + (f" — {outline.title[:60]}" if outline.title else ""))
     ok_count = 0
     fail_count = 0
-    skipped = 0
     for lesson in lessons:
         # Placeholder entries (weekly modules without item URLs).
         if not lesson.url or lesson.url.rstrip("/") == url.rstrip("/"):
             info(f"[{lesson.index + 1}/{len(outline)}] {lesson.title[:60]} — outline only")
-            skipped += 1
             continue
         info(f"[{lesson.index + 1}/{len(outline)}] {lesson.title[:60]}")
         info_dict = get_yt_formats(lesson.url)

@@ -183,7 +183,25 @@ def main() -> None:
                 handle_podcast(url, out_folder)
 
             elif is_education_url(url):
-                download_education_course(url, out_folder)
+                from rich.prompt import IntPrompt
+
+                from smart_dl.extractors.education import parse_course_outline
+
+                outline = parse_course_outline(url)
+                total = len(outline)
+                max_lessons = None
+                if total > 5:
+                    info(
+                        f"Course has {total} outline item(s)"
+                        + (f" — {outline.title[:50]}" if outline.title else "")
+                    )
+                    cap = IntPrompt.ask(
+                        "  [bold yellow]How many lessons?[/bold yellow] "
+                        "[dim](0 = all)[/dim]",
+                        default=min(20, total),
+                    )
+                    max_lessons = None if cap == 0 else max(0, int(cap))
+                download_education_course(url, out_folder, max_lessons=max_lessons)
 
             else:
                 from smart_dl.extractors.persian import (
