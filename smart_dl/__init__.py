@@ -8,7 +8,7 @@ import sys
 from importlib.util import find_spec
 from typing import Callable, Dict, List, Optional
 
-VERSION = "3.12.0"
+VERSION = "3.12.1"
 
 __all__ = ["VERSION", "ensure_deps", "deps_available", "missing_deps"]
 

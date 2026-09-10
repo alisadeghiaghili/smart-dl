@@ -710,6 +710,22 @@ def _print_diagnostics() -> None:
     else:
         lines.append("  Env vars    : [dim]none[/dim]")
     lines.append("")
+    lines.append("  --- Browser cookies ---")
+    from smart_dl.core.cookie_diag import cookie_diagnose_report
+
+    cookie_report = cookie_diagnose_report()
+    if not cookie_report["configured"]:
+        lines.append("  Browser     : [dim]not set[/dim] (press c at the URL prompt)")
+    else:
+        lines.append(f"  Browser     : {cookie_report['browser']}")
+        if cookie_report["extract_ok"]:
+            lines.append(f"  Cookies     : {cookie_report['total_cookies']} total")
+            for domain, count in (cookie_report["by_domain"] or {}).items():
+                mark = "[green]ok[/green]" if count else "[dim]0[/dim]"
+                lines.append(f"    {domain:20s} {count}  {mark}")
+        else:
+            lines.append(f"  Extract     : [red]FAILED[/red] {cookie_report['error']}")
+    lines.append("")
     lines.append("  --- Paths ---")
     lines.append(f"  Portable    : {is_portable()}")
     lines.append(f"  Data dir    : {get_data_dir()}")
