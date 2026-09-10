@@ -5,6 +5,18 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 ---
 
+## [3.8.0] - 2026-09-10
+
+### Added
+- Browser-cookie `requests.Session` helper (`core/browser_cookies.py`)
+- Coursera lecture URL builder and authenticated module-item fetch
+- Expand weekly modules into `/learn/{slug}/lecture/{itemId}` when cookies exist
+
+### Changed
+- Live Coursera outline tries cookie expansion after the public syllabus API
+
+---
+
 ## [3.7.0] - 2026-09-10
 
 ### Added
