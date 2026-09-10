@@ -1,21 +1,31 @@
 """Channel subscriptions — follow creators and auto-download new uploads."""
+from __future__ import annotations
+
 import sqlite3
 import time
 from pathlib import Path
-from typing import List
+from typing import List, Optional
 
-from smart_dl.core.config import load_config
+from smart_dl.core.paths import get_db_path
+
+_db_path_override: Optional[Path] = None
+
+
+def set_subscriptions_db_path_for_tests(path: Optional[Path]) -> None:
+    """Override the subscriptions DB path (tests only)."""
+    global _db_path_override
+    _db_path_override = Path(path) if path is not None else None
 
 
 def _get_db_path() -> Path:
-    cfg = load_config()
-    data_dir = Path(cfg.get("data_dir", Path.home() / ".smartdl"))
-    data_dir.mkdir(parents=True, exist_ok=True)
-    return data_dir / "subscriptions.db"
+    if _db_path_override is not None:
+        return _db_path_override
+    return get_db_path("subscriptions")
 
 
 def _get_conn():
     db = _get_db_path()
+    db.parent.mkdir(parents=True, exist_ok=True)
     conn = sqlite3.connect(str(db))
     conn.row_factory = sqlite3.Row
     conn.execute("PRAGMA journal_mode=WAL")

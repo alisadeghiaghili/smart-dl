@@ -1,50 +1,61 @@
-"""Portable mode — run from USB stick without touching system directories."""
-import os
+"""Portable mode — run from a USB stick without touching system directories."""
+
+from __future__ import annotations
+
 from pathlib import Path
+from typing import Optional
 
+from smart_dl.core.paths import (
+    disable_portable_mode as _disable_portable_mode,
+)
+from smart_dl.core.paths import (
+    enable_portable_mode as _enable_portable_mode,
+)
+from smart_dl.core.paths import (
+    get_app_root,
+    get_config_path,
+    get_data_dir,
+    is_portable,
+)
 
-def is_portable() -> bool:
-    """Check if portable mode is active."""
-    # Check for portable.txt or .portable next to the script
-    script_dir = Path(__file__).resolve().parent.parent.parent
-    return (script_dir / "portable.txt").exists() or (script_dir / ".portable").exists()
-
-
-def get_data_dir() -> Path:
-    """Get the data directory based on portable mode."""
-    if is_portable():
-        script_dir = Path(__file__).resolve().parent.parent.parent
-        data_dir = script_dir / "data"
-    else:
-        data_dir = Path(os.environ.get("APPDATA", Path.home())) / "SmartDL"
-    data_dir.mkdir(parents=True, exist_ok=True)
-    return data_dir
-
-
-def get_config_path() -> Path:
-    """Get the config file path."""
-    return get_data_dir() / "config.json"
+__all__ = [
+    "disable_portable_mode",
+    "enable_portable_mode",
+    "get_app_root",
+    "get_config_path",
+    "get_data_dir",
+    "get_db_dir",
+    "is_portable",
+]
 
 
 def get_db_dir() -> Path:
-    """Get the database directory."""
-    d = get_data_dir()
-    d.mkdir(parents=True, exist_ok=True)
-    return d
+    """Return the directory that holds SQLite databases.
+
+    Returns
+    -------
+    pathlib.Path
+        Same as :func:`smart_dl.core.paths.get_data_dir`.
+    """
+    return get_data_dir()
 
 
-def enable_portable_mode():
-    """Create portable.txt to enable portable mode."""
-    script_dir = Path(__file__).resolve().parent.parent.parent
-    (script_dir / "portable.txt").touch()
+def enable_portable_mode(marker: Optional[str] = None) -> Path:
+    """Enable portable mode by creating a marker file.
+
+    Parameters
+    ----------
+    marker : str, optional
+        Marker filename (default ``portable.txt``).
+
+    Returns
+    -------
+    pathlib.Path
+        Path of the created marker.
+    """
+    return _enable_portable_mode(marker)
 
 
-def disable_portable_mode():
-    """Remove portable.txt to disable portable mode."""
-    script_dir = Path(__file__).resolve().parent.parent.parent
-    p = script_dir / "portable.txt"
-    if p.exists():
-        p.unlink()
-    p2 = script_dir / ".portable"
-    if p2.exists():
-        p2.unlink()
+def disable_portable_mode() -> None:
+    """Disable portable mode by removing marker files."""
+    _disable_portable_mode()
