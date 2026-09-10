@@ -83,67 +83,192 @@ def add_subscription(url: str, name: str = "", platform: str = "youtube",
 
 
 def get_subscriptions(enabled_only: bool = True) -> List[dict]:
-    """Get all subscriptions."""
+    """Get all subscriptions.
+
+    Parameters
+    ----------
+    enabled_only : bool, optional
+        When True, only enabled rows are returned.
+
+    Returns
+    -------
+    list of dict
+        Subscription rows, newest first.
+    """
     conn = _get_conn()
-    if enabled_only:
-        rows = conn.execute("SELECT * FROM subscriptions WHERE enabled=1 ORDER BY created_at DESC").fetchall()
-    else:
-        rows = conn.execute("SELECT * FROM subscriptions ORDER BY created_at DESC").fetchall()
-    conn.close()
-    return [dict(r) for r in rows]
+    try:
+        if enabled_only:
+            rows = conn.execute(
+                "SELECT * FROM subscriptions WHERE enabled=1 ORDER BY created_at DESC"
+            ).fetchall()
+        else:
+            rows = conn.execute(
+                "SELECT * FROM subscriptions ORDER BY created_at DESC"
+            ).fetchall()
+        return [dict(r) for r in rows]
+    finally:
+        conn.close()
+
+
+def get_subscription_by_id(sub_id: int) -> Optional[dict]:
+    """Fetch one subscription by id.
+
+    Parameters
+    ----------
+    sub_id : int
+        Subscription primary key.
+
+    Returns
+    -------
+    dict or None
+        The row, or ``None`` if missing.
+    """
+    conn = _get_conn()
+    try:
+        row = conn.execute("SELECT * FROM subscriptions WHERE id=?", (sub_id,)).fetchone()
+        return dict(row) if row else None
+    finally:
+        conn.close()
+
+
+def get_subscription_video_ids(sub_id: int) -> List[str]:
+    """Return video ids already recorded for a subscription.
+
+    Parameters
+    ----------
+    sub_id : int
+        Subscription primary key.
+
+    Returns
+    -------
+    list of str
+        Video ids (may contain empty strings from incomplete rows).
+    """
+    conn = _get_conn()
+    try:
+        rows = conn.execute(
+            "SELECT video_id FROM subscription_history WHERE sub_id=?",
+            (sub_id,),
+        ).fetchall()
+        return [r["video_id"] for r in rows if r["video_id"]]
+    finally:
+        conn.close()
 
 
 def remove_subscription(sub_id: int):
-    """Remove a subscription."""
+    """Remove a subscription.
+
+    Parameters
+    ----------
+    sub_id : int
+        Subscription primary key.
+    """
     conn = _get_conn()
-    conn.execute("DELETE FROM subscriptions WHERE id=?", (sub_id,))
-    conn.execute("DELETE FROM subscription_history WHERE sub_id=?", (sub_id,))
-    conn.commit()
-    conn.close()
+    try:
+        conn.execute("DELETE FROM subscriptions WHERE id=?", (sub_id,))
+        conn.execute("DELETE FROM subscription_history WHERE sub_id=?", (sub_id,))
+        conn.commit()
+    finally:
+        conn.close()
 
 
 def update_last_checked(sub_id: int, video_id: str = ""):
-    """Update the last checked time and video ID."""
+    """Update the last checked time and newest video id.
+
+    Parameters
+    ----------
+    sub_id : int
+        Subscription primary key.
+    video_id : str, optional
+        Newest video id seen at check time.
+    """
     conn = _get_conn()
-    now = time.time()
-    conn.execute("UPDATE subscriptions SET last_checked=?, last_video_id=? WHERE id=?",
-                  (now, video_id, sub_id))
-    conn.commit()
-    conn.close()
+    try:
+        now = time.time()
+        conn.execute(
+            "UPDATE subscriptions SET last_checked=?, last_video_id=? WHERE id=?",
+            (now, video_id, sub_id),
+        )
+        conn.commit()
+    finally:
+        conn.close()
 
 
 def add_subscription_video(sub_id: int, video_url: str, video_title: str = "", video_id: str = ""):
-    """Record a downloaded video for a subscription."""
+    """Record a downloaded video for a subscription.
+
+    Parameters
+    ----------
+    sub_id : int
+        Subscription primary key.
+    video_url : str
+        Video URL.
+    video_title : str, optional
+        Display title.
+    video_id : str, optional
+        Platform video id.
+    """
     conn = _get_conn()
-    now = time.time()
-    conn.execute(
-        "INSERT INTO subscription_history (sub_id, video_url, video_title, video_id, downloaded_at) VALUES (?, ?, ?, ?, ?)",
-        (sub_id, video_url, video_title, video_id, now)
-    )
-    conn.commit()
-    conn.close()
+    try:
+        now = time.time()
+        conn.execute(
+            "INSERT INTO subscription_history "
+            "(sub_id, video_url, video_title, video_id, downloaded_at) "
+            "VALUES (?, ?, ?, ?, ?)",
+            (sub_id, video_url, video_title, video_id, now),
+        )
+        conn.commit()
+    finally:
+        conn.close()
 
 
 def toggle_subscription(sub_id: int, enabled: bool = None):
-    """Toggle or set subscription enabled state."""
+    """Toggle or set subscription enabled state.
+
+    Parameters
+    ----------
+    sub_id : int
+        Subscription primary key.
+    enabled : bool, optional
+        Explicit state; toggles current value when ``None``.
+    """
     conn = _get_conn()
-    if enabled is None:
-        row = conn.execute("SELECT enabled FROM subscriptions WHERE id=?", (sub_id,)).fetchone()
-        enabled = not bool(row["enabled"]) if row else True
-    conn.execute("UPDATE subscriptions SET enabled=? WHERE id=?", (1 if enabled else 0, sub_id))
-    conn.commit()
-    conn.close()
+    try:
+        if enabled is None:
+            row = conn.execute(
+                "SELECT enabled FROM subscriptions WHERE id=?", (sub_id,)
+            ).fetchone()
+            enabled = not bool(row["enabled"]) if row else True
+        conn.execute(
+            "UPDATE subscriptions SET enabled=? WHERE id=?",
+            (1 if enabled else 0, sub_id),
+        )
+        conn.commit()
+    finally:
+        conn.close()
 
 
 def get_subscription_stats() -> dict:
-    """Get subscription statistics."""
+    """Get subscription statistics.
+
+    Returns
+    -------
+    dict
+        Keys ``active``, ``total``, ``videos_downloaded``.
+    """
     conn = _get_conn()
-    stats = {}
-    row = conn.execute("SELECT COUNT(*) as cnt FROM subscriptions WHERE enabled=1").fetchone()
-    stats["active"] = row["cnt"] or 0
-    row = conn.execute("SELECT COUNT(*) as cnt FROM subscriptions").fetchone()
-    stats["total"] = row["cnt"] or 0
-    row = conn.execute("SELECT COUNT(*) as cnt FROM subscription_history").fetchone()
-    stats["videos_downloaded"] = row["cnt"] or 0
-    conn.close()
-    return stats
+    try:
+        stats = {}
+        row = conn.execute(
+            "SELECT COUNT(*) AS cnt FROM subscriptions WHERE enabled=1"
+        ).fetchone()
+        stats["active"] = row["cnt"] or 0
+        row = conn.execute("SELECT COUNT(*) AS cnt FROM subscriptions").fetchone()
+        stats["total"] = row["cnt"] or 0
+        row = conn.execute(
+            "SELECT COUNT(*) AS cnt FROM subscription_history"
+        ).fetchone()
+        stats["videos_downloaded"] = row["cnt"] or 0
+        return stats
+    finally:
+        conn.close()
