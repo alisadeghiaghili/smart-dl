@@ -210,8 +210,14 @@ def yt_quality_menu(info_dict) -> tuple:
         return "bestvideo+bestaudio/best", False
 
 
-def handle_playlist(url, out_folder):
-    """Handle YouTube playlist download."""
+def handle_playlist(url, out_folder) -> bool:
+    """Handle YouTube playlist download.
+
+    Returns
+    -------
+    bool
+        ``True`` when at least one video downloaded and none remain failed.
+    """
     print_section("Analyzing playlist", "\U0001f4cb")
     prx = get_current_proxy()
     ydl_opts = {
@@ -237,13 +243,13 @@ def handle_playlist(url, out_folder):
             show_no_internet_panel(host=_host)
         else:
             error("Could not fetch playlist: " + str(e)[:120])
-        return
+        return False
 
     entries = playlist_info.get("entries") or []
     total = len(entries)
     if total == 0:
         error("Playlist is empty or unavailable.")
-        return
+        return False
 
     title = playlist_info.get("title") or "Playlist"
     console.print(Panel(
@@ -263,7 +269,7 @@ def handle_playlist(url, out_folder):
                         border_style="cyan", padding=(0,1)))
     mode = Prompt.ask("  [bold yellow]Select[/bold yellow]", default="1").strip()
     if mode == "0":
-        return
+        return False
 
     shared_fmt, shared_is_audio = None, False
     if mode == "1":
@@ -274,10 +280,10 @@ def handle_playlist(url, out_folder):
         first_info = get_yt_formats(first_url)
         if not first_info:
             error("Could not fetch formats.")
-            return
+            return False
         shared_fmt, shared_is_audio = yt_quality_menu(first_info)
         if shared_fmt is None:
-            return
+            return False
 
     skipped = []
     for i, entry in enumerate(entries, 1):
@@ -307,7 +313,8 @@ def handle_playlist(url, out_folder):
             fmt, is_audio = shared_fmt, shared_is_audio
 
         try:
-            download_yt(vid_url, out_folder, fmt, is_audio)
+            if not download_yt(vid_url, out_folder, fmt, is_audio):
+                skipped.append((i, vid_title, "download failed"))
         except Exception as e:
             warn("Skipped: " + str(e)[:80])
             skipped.append((i, vid_title, str(e)[:80]))
@@ -321,7 +328,7 @@ def handle_playlist(url, out_folder):
     ))
 
     if not skipped:
-        return
+        return done == total and total > 0
 
     console.print()
     st = Table(box=box.ROUNDED, show_header=True, border_style="yellow", padding=(0,1))
@@ -338,7 +345,7 @@ def handle_playlist(url, out_folder):
         default="n"
     ).strip().lower()
     if retry != "y":
-        return
+        return False
 
     still_skipped = []
     for idx, vtitle, _ in skipped:
@@ -373,6 +380,7 @@ def handle_playlist(url, out_folder):
             info(str(idx) + ". " + vtitle[:55] + " \u2014 " + reason[:50])
     else:
         success("All retried videos downloaded successfully.")
+        return True
 
 
 def download_yt(url, out_folder, fmt, is_audio=False) -> bool:

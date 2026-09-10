@@ -451,15 +451,15 @@ def run_cli():
             if is_playlist_url(url):
                 if is_aparat_url(url):
                     from smart_dl.extractors.aparat import handle_aparat_playlist
-                    handle_aparat_playlist(url, out_folder)
+                    failures += count_failure(handle_aparat_playlist(url, out_folder))
                 else:
                     from smart_dl.extractors.youtube import handle_playlist
-                    handle_playlist(url, out_folder)
+                    failures += count_failure(handle_playlist(url, out_folder))
 
             # ── Aparat ────────────────────────────────────────────────────────
             elif is_aparat_url(url):
                 from smart_dl.extractors.aparat import download_aparat
-                download_aparat(url, out_folder)
+                failures += count_failure(download_aparat(url, out_folder))
 
             # ── YouTube ───────────────────────────────────────────────────────
             elif is_youtube_url(url):
@@ -483,7 +483,7 @@ def run_cli():
             # ── Podcasts ──────────────────────────────────────────────────────
             elif is_podcast_url(url):
                 from smart_dl.extractors.podcast import handle_podcast
-                handle_podcast(url, out_folder)
+                failures += count_failure(handle_podcast(url, out_folder))
 
             # ── Education (Maktabkhooneh / Faradars / Coursera) ───────────────
             else:
@@ -534,6 +534,23 @@ def run_cli():
         error(f"Finished with {failures} failed download(s).")
         sys.exit(1)
     success("All done!")
+
+
+def count_failure(ok) -> int:
+    """Return 1 when a download handler reports failure, else 0.
+
+    Parameters
+    ----------
+    ok : bool or None
+        Handler return value. ``None`` is treated as failure (legacy
+        handlers that did not return a status).
+
+    Returns
+    -------
+    int
+        0 or 1.
+    """
+    return 0 if ok is True else 1
 
 
 def resolve_education_max_lessons(

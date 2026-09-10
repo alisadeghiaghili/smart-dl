@@ -21,6 +21,7 @@ __all__ = [
     "coursera_lecture_url",
     "download_education_course",
     "expand_coursera_outline_with_items",
+    "extract_faradars_course_paths",
     "extract_lesson_hrefs",
     "fetch_coursera_module_items",
     "is_coursera_url",
@@ -559,6 +560,31 @@ def expand_coursera_outline_with_items(
     )
 
 
+def extract_faradars_course_paths(html: str) -> List[str]:
+    """Extract unique Faradars course-like paths from page HTML.
+
+    Parameters
+    ----------
+    html : str
+        Page HTML (may include ``__NEXT_DATA__``).
+
+    Returns
+    -------
+    list of str
+        Absolute-path strings starting with ``/``.
+    """
+    found: List[str] = []
+    for match in re.finditer(
+        r'href=["\'](/(?:fv[0-9][^"\']*|how-to-learn/[^"\']+|courses?/[^"\']+))["\']',
+        html or "",
+        re.I,
+    ):
+        path = match.group(1).rstrip("\\").strip()
+        if path and path not in found:
+            found.append(path)
+    return found
+
+
 def extract_next_data_title(html: str) -> str:
     """Extract a page title from a Next.js ``__NEXT_DATA__`` payload.
 
@@ -651,6 +677,10 @@ def parse_course_outline(url: str, html: Optional[str] = None) -> CourseOutline:
         title = extract_next_data_title(html or "")
 
     hrefs = extract_lesson_hrefs(html or "", url)
+    # Faradars SPA often has no /lesson/ links; surface course paths as outline.
+    if not hrefs and platform == "Faradars":
+        base = "{0.scheme}://{0.netloc}".format(urlparse(url))
+        hrefs = [base + path for path in extract_faradars_course_paths(html or "")]
     lessons = [
         CourseLesson(title=href.rsplit("/", 1)[-1][:80] or f"lesson-{i + 1}", url=href, index=i)
         for i, href in enumerate(hrefs)

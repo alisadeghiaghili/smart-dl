@@ -108,8 +108,14 @@ def is_aparat_playlist(url):
     )
 
 
-def download_aparat(url, out_folder):
-    """Download Aparat video with quality selection."""
+def download_aparat(url, out_folder) -> bool:
+    """Download Aparat video with quality selection.
+
+    Returns
+    -------
+    bool
+        ``True`` on success.
+    """
     print_section(t("analyzing_aparat"), "\U0001f3ac")
 
     # Try native API first for better quality info
@@ -126,11 +132,12 @@ def download_aparat(url, out_folder):
 
         fmt, is_audio = yt_quality_menu(info_dict)
         if fmt is not None:
-            download_yt(url, out_folder, fmt, is_audio)
-        return
+            return download_yt(url, out_folder, fmt, is_audio)
+        return False
 
     error("Could not extract video from this Aparat URL.")
     info("Make sure the URL is valid and the video is public.")
+    return False
 
 
 def _show_aparat_info(aparat_info):
@@ -157,24 +164,29 @@ def _show_aparat_info(aparat_info):
     console.print(Panel(body, border_style="cyan", title="[bold]Aparat Video[/bold]", padding=(0,2)))
 
 
-def handle_aparat_playlist(url, out_folder):
-    """Handle Aparat playlist download with native API support."""
+def handle_aparat_playlist(url, out_folder) -> bool:
+    """Handle Aparat playlist download with native API support.
+
+    Returns
+    -------
+    bool
+        ``True`` when the playlist completed without skipped failures.
+    """
     print_section(t("analyzing_playlist"), "\U0001f4cb")
 
     # Try native API first
     playlist_data = get_aparat_playlist_info(url)
 
     if playlist_data and playlist_data.get("videos"):
-        _download_aparat_playlist_native(playlist_data, out_folder)
-        return
+        return _download_aparat_playlist_native(playlist_data, out_folder)
 
     # Fallback: use yt-dlp
     from smart_dl.extractors.youtube import handle_playlist
     info("Using yt-dlp for Aparat playlist...")
-    handle_playlist(url, out_folder)
+    return handle_playlist(url, out_folder)
 
 
-def _download_aparat_playlist_native(playlist_data, out_folder):
+def _download_aparat_playlist_native(playlist_data, out_folder) -> bool:
     """Download Aparat playlist using native API data."""
     title = playlist_data.get("title", "Aparat Playlist")
     videos = playlist_data.get("videos", [])
@@ -182,7 +194,7 @@ def _download_aparat_playlist_native(playlist_data, out_folder):
 
     if total == 0:
         error("Playlist is empty.")
-        return
+        return False
 
     console.print(Panel(
         "[bold white]" + title + "[/bold white]\n"
@@ -202,7 +214,7 @@ def _download_aparat_playlist_native(playlist_data, out_folder):
                         border_style="cyan", padding=(0,1)))
     mode = Prompt.ask("  [bold yellow]Select[/bold yellow]", default="2").strip()
     if mode == "0":
-        return
+        return False
 
     skipped = []
     for i, video in enumerate(videos, 1):
@@ -236,7 +248,8 @@ def _download_aparat_playlist_native(playlist_data, out_folder):
                     fmt = "bestvideo+bestaudio/best"
 
             if fmt:
-                download_yt(vid_url, out_folder, fmt)
+                if not download_yt(vid_url, out_folder, fmt):
+                    skipped.append((i, vid_title, "download failed"))
         except Exception as e:
             warn("Skipped: " + str(e)[:80])
             skipped.append((i, vid_title, str(e)[:80]))
@@ -254,3 +267,4 @@ def _download_aparat_playlist_native(playlist_data, out_folder):
         warn(str(len(skipped)) + " video(s) failed.")
         for idx, vtitle, reason in skipped:
             info(str(idx) + ". " + vtitle[:55] + " \u2014 " + reason[:50])
+    return len(skipped) == 0 and done > 0
