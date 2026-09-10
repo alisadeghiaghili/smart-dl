@@ -1,4 +1,4 @@
-# SmartDL v3.0
+# SmartDL v3.1.0
 
 > **bad connection? hold my retry loop.**
 
@@ -89,7 +89,7 @@ cd smart-dl
 python smart_dl.py
 ```
 
-Python dependencies (`yt-dlp`, `rich`, `requests`) are installed automatically on first run.
+Python dependencies (`yt-dlp`, `rich`, `requests`) are declared in `pyproject.toml`. Install with `pip install -e .` (or `pip install smart-dl`). Optional auto-install on first interactive run is available via `SMARTDL_AUTO_DEPS=1`.
 
 ---
 
@@ -149,7 +149,10 @@ smart-dl --batch urls.txt -o ~/Downloads
 # Queue management
 smart-dl --queue add URL1 URL2 URL3
 smart-dl --queue start
+smart-dl --queue pause
+smart-dl --queue resume
 smart-dl --queue list
+smart-dl --queue stats
 
 # Download history
 smart-dl --history list --sort date
@@ -184,9 +187,16 @@ smart-dl --proxy socks5://127.0.0.1:10808
 # Portable mode
 smart-dl --portable
 
-# Quiet mode (no UI)
+# Quiet mode with file logging
 smart-dl URL --quiet --log download.log
 ```
+
+### Notes
+
+- Failed downloads exit with code `1` and do **not** print a success message.
+- History records every download outcome (`--history list` / `--history stats`).
+- Portable mode (`--portable` or a `portable.txt` next to the app) stores config and databases under `./data`.
+- Dependency auto-install is off by default. Set `SMARTDL_AUTO_DEPS=1` only if you want first-run `pip install`.
 
 ---
 

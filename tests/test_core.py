@@ -1,10 +1,9 @@
 """Unit tests for SmartDL core modules."""
 import os
 import sys
-import tempfile
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
-os.environ['SMARTDL_NO_DEPS'] = '1'
+os.environ["SMARTDL_NO_DEPS"] = "1"
 
 
 class TestConfigPersistence:
@@ -14,33 +13,30 @@ class TestConfigPersistence:
         cfg = load_config()
         assert isinstance(cfg, dict)
 
-    def test_save_and_load(self):
-        import shutil
+    def test_save_and_load(self, tmp_path):
+        from smart_dl.core.config import load_config, save_config, set_config_path_for_tests
 
-        from smart_dl.core.config import load_config, save_config
-
-        # Use temp dir for testing
-        temp_dir = tempfile.mkdtemp()
-        test_config = os.path.join(temp_dir, "config.json")
-
-        # Patch the config path
-        import smart_dl.core.config as config_mod
-        original = config_mod._SMARTDL_CONFIG
-        config_mod._SMARTDL_CONFIG = test_config
-
+        test_config = tmp_path / "config.json"
+        set_config_path_for_tests(test_config)
         try:
-            save_config({"test": "value", "nested": {"key": 123}})
+            assert save_config({"test": "value", "nested": {"key": 123}}) is True
             loaded = load_config()
             assert loaded["test"] == "value"
             assert loaded["nested"]["key"] == 123
         finally:
-            config_mod._SMARTDL_CONFIG = original
-            shutil.rmtree(temp_dir, ignore_errors=True)
+            set_config_path_for_tests(None)
 
-    def test_save_permission_error(self):
-        from smart_dl.core.config import save_config
-        # Should not crash on permission error
-        save_config({"test": "value"})
+    def test_save_permission_error(self, tmp_path):
+        from smart_dl.core.config import load_config, save_config, set_config_path_for_tests
+
+        blocker = tmp_path / "not-a-dir"
+        blocker.write_text("x", encoding="utf-8")
+        set_config_path_for_tests(blocker / "config.json")
+        try:
+            assert save_config({"test": "value"}) is False
+            assert load_config() == {}
+        finally:
+            set_config_path_for_tests(None)
 
 
 class TestRetryLogic:
@@ -150,50 +146,74 @@ class TestI18n:
 
 
 class TestQueue:
-    def test_init_db(self):
-        from smart_dl.core.queue import init_db
-        init_db()  # Should not crash
+    def test_init_db(self, tmp_path):
+        from smart_dl.core import queue as queue_mod
 
-    def test_add_and_get(self):
-        from smart_dl.core.queue import add_to_queue, clear_queue, get_queue, init_db
-        init_db()
-        clear_queue()
-        count = add_to_queue(["https://example.com/test1", "https://example.com/test2"])
-        assert count == 2
-        items = get_queue()
-        assert len(items) == 2
-        clear_queue()
+        queue_mod.set_queue_db_path_for_tests(tmp_path / "queue.db")
+        queue_mod.init_db()
+        queue_mod.set_queue_db_path_for_tests(None)
 
-    def test_stats(self):
-        from smart_dl.core.queue import add_to_queue, clear_queue, get_queue_stats, init_db
-        init_db()
-        clear_queue()
-        add_to_queue(["https://example.com/test"])
-        stats = get_queue_stats()
-        assert stats["pending"] >= 1
-        clear_queue()
+    def test_add_and_get(self, tmp_path):
+        from smart_dl.core import queue as queue_mod
+
+        queue_mod.set_queue_db_path_for_tests(tmp_path / "queue.db")
+        try:
+            queue_mod.init_db()
+            count = queue_mod.add_to_queue(
+                ["https://example.com/test1", "https://example.com/test2"]
+            )
+            assert count == 2
+            assert len(queue_mod.get_queue()) == 2
+        finally:
+            queue_mod.set_queue_db_path_for_tests(None)
+
+    def test_process_queue_marks_completed(self, tmp_path):
+        from smart_dl.core import queue as queue_mod
+
+        queue_mod.set_queue_db_path_for_tests(tmp_path / "queue.db")
+        try:
+            queue_mod.init_db()
+            queue_mod.add_to_queue(["https://example.com/a"])
+            result = queue_mod.process_queue(lambda item: True)
+            assert result["completed"] == 1
+            assert result["failed"] == 0
+            assert queue_mod.get_queue_stats()["completed"] == 1
+        finally:
+            queue_mod.set_queue_db_path_for_tests(None)
 
 
 class TestHistory:
-    def test_init_db(self):
-        from smart_dl.core.history import init_db
-        init_db()
+    def test_init_db(self, tmp_path):
+        from smart_dl.core import history as history_mod
 
-    def test_add_and_get(self):
-        from smart_dl.core.history import add_to_history, get_history, init_db
-        init_db()
-        hist_id = add_to_history(
-            url="https://example.com/test",
-            title="Test Video",
-            platform="youtube"
-        )
-        assert hist_id > 0
-        rows = get_history()
-        assert len(rows) >= 1
+        history_mod.set_history_db_path_for_tests(tmp_path / "history.db")
+        history_mod.init_db()
+        history_mod.set_history_db_path_for_tests(None)
 
-    def test_stats(self):
-        from smart_dl.core.history import get_history_stats, init_db
-        init_db()
-        stats = get_history_stats()
-        assert "total_downloads" in stats
-        assert "total_size" in stats
+    def test_add_and_get(self, tmp_path):
+        from smart_dl.core import history as history_mod
+
+        history_mod.set_history_db_path_for_tests(tmp_path / "history.db")
+        try:
+            history_mod.init_db()
+            hist_id = history_mod.add_to_history(
+                url="https://example.com/test",
+                title="Test Video",
+                platform="youtube",
+            )
+            assert hist_id > 0
+            assert len(history_mod.get_history()) >= 1
+        finally:
+            history_mod.set_history_db_path_for_tests(None)
+
+    def test_stats(self, tmp_path):
+        from smart_dl.core import history as history_mod
+
+        history_mod.set_history_db_path_for_tests(tmp_path / "history.db")
+        try:
+            history_mod.init_db()
+            stats = history_mod.get_history_stats()
+            assert "total_downloads" in stats
+            assert "total_size" in stats
+        finally:
+            history_mod.set_history_db_path_for_tests(None)

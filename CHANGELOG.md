@@ -5,6 +5,45 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 ---
 
+## [3.1.0] - 2026-09-10
+
+### Added
+- `smart_dl.core.paths` — single data directory for config, SQLite DBs, and portable mode
+- `smart_dl.core.net_utils` — host-aware URL matching (rejects `evil-youtube.com.attacker.net`)
+- `smart_dl.core.recorder` — writes completed/failed downloads into history
+- Queue processor: `process_queue`, `pause_queue`, `resume_queue`
+- CLI: `--queue start|pause|resume` actually drain/pause the queue
+- CLI: `--log` wires to `setup_logging`
+- CLI: quality presets `worst`, `4k`, `8k` (plus numeric heights)
+- Atomic config writes (`tempfile` + `os.replace`)
+- Download settings (`max_retries`, `fragments`) persist across restarts
+- `RetryGaveUp` so terminal retry outcomes cannot look like success
+
+### Changed
+- `download_yt` / `download_with_features` return `bool` and print success only on success
+- Outer `retry_with_backoff` is the retry authority (yt-dlp internal retries capped at 3)
+- Import of `smart_dl` no longer runs pip; auto-install only with `SMARTDL_AUTO_DEPS=1`
+- Portable mode redirects config **and** all SQLite databases
+- History/queue/subscriptions use the unified data directory
+- Isolated unit tests (no writes to the developer's real home data dir)
+- CI uses `python -m compileall` instead of a hard-coded file list
+
+### Fixed
+- Failed downloads no longer print "Download complete!"
+- DNS / duration-cap give-ups raise `RetryGaveUp` instead of returning `None`
+- `--thumbnail` is honored when a URL is provided
+- YouTube/Aparat URL detection is host-based, not substring-based
+- Podcast quality menu cancel returns `None` (was a 2-tuple crash)
+- Podcast original-file extension when the suffix is empty
+- `safe_filename` neutralizes Windows reserved device names
+- `fmt_size` for exact byte counts (`500 B`, not `500.0 B`)
+
+### Removed
+- Import-time dependency auto-install side effect
+- Hard-coded CI `py_compile` checklist
+
+---
+
 ## [3.0.0] - 2026-08-09
 
 ### Added

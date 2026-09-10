@@ -158,23 +158,22 @@ class TestApplyProxyValidation:
     """apply_proxy must reject malformed URLs so bad registry parse can't poison config."""
 
     def setup_method(self):
-        import smart_dl.core.config as config_mod
+        from smart_dl.core.config import set_config_path_for_tests
 
-        self._orig = config_mod._SMARTDL_CONFIG
-        tmp = Path(tempfile.gettempdir()) / "test_proxy_config.json"
-        tmp.parent.mkdir(parents=True, exist_ok=True)
-        config_mod._SMARTDL_CONFIG = str(tmp)
+        self._tmp = Path(tempfile.gettempdir()) / "test_proxy_config.json"
+        self._tmp.parent.mkdir(parents=True, exist_ok=True)
+        set_config_path_for_tests(self._tmp)
         for key in _PROXY_ENV_VARS:
             os.environ.pop(key, None)
 
     def teardown_method(self):
-        import smart_dl.core.config as config_mod
+        from smart_dl.core.config import set_config_path_for_tests
 
-        config_mod._SMARTDL_CONFIG = self._orig
+        set_config_path_for_tests(None)
         for key in _PROXY_ENV_VARS:
             os.environ.pop(key, None)
         try:
-            Path(self._orig).unlink(missing_ok=True)
+            self._tmp.unlink(missing_ok=True)
         except Exception:
             pass
 
@@ -211,16 +210,14 @@ class TestApplyProxyValidation:
 class TestReadOnlyPeek:
     """peek_current_proxy must not mutate env or config."""
 
-    def test_peek_does_not_set_env_vars(self):
+    def test_peek_does_not_set_env_vars(self, tmp_path):
         from smart_dl.core.proxy import peek_current_proxy
 
         os.environ.pop("HTTP_PROXY", None)
         os.environ.pop("HTTPS_PROXY", None)
-        import smart_dl.core.config as config_mod
+        from smart_dl.core.config import set_config_path_for_tests
 
-        orig = config_mod._SMARTDL_CONFIG
-        tmp = Path(tempfile.gettempdir()) / "test_peek_config.json"
-        config_mod._SMARTDL_CONFIG = str(tmp)
+        set_config_path_for_tests(tmp_path / "peek_config.json")
         try:
             from smart_dl.core.proxy import apply_proxy
 
@@ -232,8 +229,4 @@ class TestReadOnlyPeek:
             assert "HTTP_PROXY" not in os.environ
             assert "HTTPS_PROXY" not in os.environ
         finally:
-            config_mod._SMARTDL_CONFIG = orig
-            try:
-                Path(tmp).unlink(missing_ok=True)
-            except Exception:
-                pass
+            set_config_path_for_tests(None)
