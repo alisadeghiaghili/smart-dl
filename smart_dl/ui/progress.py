@@ -23,7 +23,7 @@ stop_event = threading.Event()
 # one panel — not all-or-nothing.
 _no_internet_hosts: set[str] = set()
 
-_progress_ctx: dict = {"obj": None, "task": None, "last": 0}
+_progress_ctx: dict = {"obj": None, "task": None, "last": 0, "outfile": ""}
 
 
 def mark_no_internet(host: str) -> bool:
@@ -62,6 +62,9 @@ def yt_hook(d):
     elif d["status"] == "finished" and p["obj"] and p["task"] is not None:
         t = d.get("total_bytes", p["last"])
         p["obj"].update(p["task"], completed=t, total=t)
+        filename = d.get("filename") or d.get("filepath") or ""
+        if filename:
+            p["outfile"] = filename
 
 
 def make_progress():
