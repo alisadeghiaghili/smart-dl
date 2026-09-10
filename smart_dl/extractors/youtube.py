@@ -40,6 +40,12 @@ def get_yt_formats(url):
     saved_browser = get_cookie_browser()
     if saved_browser:
         ydl_opts["cookiesfrombrowser"] = (saved_browser, None, None, None)
+    else:
+        from smart_dl.core.cookies_file import get_cookies_file
+
+        cookie_file = get_cookies_file()
+        if cookie_file:
+            ydl_opts["cookiefile"] = cookie_file
     try:
         with yt_dlp.YoutubeDL(ydl_opts) as ydl:
             return ydl.extract_info(url, download=False)

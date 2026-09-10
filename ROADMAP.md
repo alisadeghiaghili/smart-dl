@@ -38,4 +38,4 @@ Each item is designed for TDD and a weekly-sized PR.
 
 ## License rationale
 
-**GPL-3.0** — keeps forks and redistributions free software; aligns with a community-facing downloader that wraps Unlicense yt-dlp without relicensing yt-dlp itself.
+**Apache-2.0** — permissive, explicit patent grant, easy for other tools to embed; pairs well with Unlicense yt-dlp without forcing copyleft on wrappers.

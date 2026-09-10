@@ -4,10 +4,10 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "smart-dl"
-version = "3.13.0"
+version = "3.14.0"
 description = "Resilient media downloader for unstable networks — YouTube, Aparat, podcasts, and 1800+ sites"
 readme = "README.md"
-license = "GPL-3.0-only"
+license = "Apache-2.0"
 requires-python = ">=3.8"
 authors = [
     {name = "Hellch!ef", email = "alisadeghil@gmail.com"}
@@ -17,7 +17,7 @@ classifiers = [
     "Development Status :: 4 - Beta",
     "Environment :: Console",
     "Intended Audience :: End Users/Desktop",
-    "License :: OSI Approved :: GNU General Public License v3 (GPLv3)",
+    "License :: OSI Approved :: Apache Software License",
     "Operating System :: Microsoft :: Windows",
     "Operating System :: POSIX :: Linux",
     "Operating System :: MacOS",
