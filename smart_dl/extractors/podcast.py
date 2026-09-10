@@ -221,7 +221,7 @@ def download_podcast_url(url, out_folder, fmt_tuple):
             time.sleep(min(attempt * 2, 30))
 
 
-def handle_podcast(url, out_folder):
+def handle_podcast(url, out_folder) -> bool:
     """Handle podcast URL — detect type and download."""
     print_section("Analyzing podcast link", "\U0001f3a4")
     prx = get_current_proxy()
@@ -243,7 +243,7 @@ def handle_podcast(url, out_folder):
             items = _parse_rss(text)
             if not items:
                 error("RSS feed found but no episodes.")
-                return
+                return False
             t = Table(box=box.ROUNDED, show_header=True, border_style="cyan", padding=(0,1))
             t.add_column("#",     style="bold cyan", width=5, justify="right")
             t.add_column("Title", style="white")
@@ -258,17 +258,17 @@ def handle_podcast(url, out_folder):
                 warn("Invalid selection.")
             fmt = podcast_quality_menu(raw_sz=raw_sz)
             if fmt is None:
-                return
+                return False
             download_podcast_url(ep_url, out_folder, fmt)
-            return
+            return True
 
         # direct audio
         if "audio" in ct or url.lower().endswith((".mp3",".m4a",".ogg",".opus",".flac",".wav")):
             fmt = podcast_quality_menu(raw_sz=raw_sz)
             if fmt is None:
-                return
+                return False
             download_podcast_url(url, out_folder, fmt)
-            return
+            return True
 
     except Exception:
         pass
@@ -289,11 +289,13 @@ def handle_podcast(url, out_folder):
         if has_video and media_info:
             fmt, is_audio = yt_quality_menu(media_info)
             if fmt is not None:
-                download_yt(url, out_folder, fmt, is_audio)
-        else:
-            fmt = podcast_quality_menu()
-            if fmt is None:
-                return
-            download_podcast_url(url, out_folder, fmt)
+                return download_yt(url, out_folder, fmt, is_audio)
+            return False
+        fmt = podcast_quality_menu()
+        if fmt is None:
+            return False
+        download_podcast_url(url, out_folder, fmt)
+        return True
     except Exception as e:
         error("Cannot handle this URL: " + str(e)[:120])
+        return False
