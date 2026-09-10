@@ -1,4 +1,4 @@
-"""Education platform extractors — Maktabkhooneh and Faradars.
+"""Education platform extractors — Maktabkhooneh, Faradars, Coursera.
 
 Paid course content requires a logged-in browser session. SmartDL reuses
 the existing cookie-browser setting so yt-dlp can fetch authorized streams.
@@ -20,6 +20,7 @@ __all__ = [
     "CourseOutline",
     "download_education_course",
     "extract_lesson_hrefs",
+    "is_coursera_url",
     "is_education_url",
     "is_faradars_url",
     "is_maktabkhooneh_url",
@@ -28,8 +29,9 @@ __all__ = [
 
 _MAKTAB_HOSTS = ("maktabkhooneh.org", "www.maktabkhooneh.org")
 _FARADARS_HOSTS = ("faradars.org", "www.faradars.org")
+_COURSERA_HOSTS = ("coursera.org", "www.coursera.org")
 
-# Lesson / video path fragments used by both platforms.
+# Lesson / video path fragments used by the supported platforms.
 _LESSON_HREF_RE = re.compile(
     r"""href=["'](
         [^"']*?/ویدیو-[^"']*
@@ -39,6 +41,10 @@ _LESSON_HREF_RE = re.compile(
         [^"']*?/lesson/[^"']*
         |
         [^"']*?/fv[0-9]+[^"']*
+        |
+        [^"']*?/learn/[^"']*/lecture/[^"']*
+        |
+        [^"']*?/lecture/[^"']*
     )["']""",
     re.IGNORECASE | re.VERBOSE,
 )
@@ -194,8 +200,24 @@ def is_faradars_url(url: str) -> bool:
     return host_matches(url_host(url), _FARADARS_HOSTS)
 
 
+def is_coursera_url(url: str) -> bool:
+    """Check whether *url* is a Coursera link.
+
+    Parameters
+    ----------
+    url : str
+        Absolute URL.
+
+    Returns
+    -------
+    bool
+        ``True`` for coursera.org hosts.
+    """
+    return host_matches(url_host(url), _COURSERA_HOSTS)
+
+
 def is_education_url(url: str) -> bool:
-    """Check whether *url* is Maktabkhooneh or Faradars.
+    """Check whether *url* is Maktabkhooneh, Faradars, or Coursera.
 
     Parameters
     ----------
@@ -207,7 +229,7 @@ def is_education_url(url: str) -> bool:
     bool
         ``True`` if the host matches a supported education platform.
     """
-    return is_maktabkhooneh_url(url) or is_faradars_url(url)
+    return is_maktabkhooneh_url(url) or is_faradars_url(url) or is_coursera_url(url)
 
 
 def platform_name(url: str) -> str:
@@ -227,6 +249,8 @@ def platform_name(url: str) -> str:
         return "Maktabkhooneh"
     if is_faradars_url(url):
         return "Faradars"
+    if is_coursera_url(url):
+        return "Coursera"
     return "Unknown"
 
 
@@ -267,6 +291,106 @@ def _fetch_html(url: str) -> str:
         return ""
 
 
+def _coursera_course_slug(url: str) -> str:
+    """Extract the course slug from a Coursera learn URL.
+
+    Parameters
+    ----------
+    url : str
+        e.g. ``https://www.coursera.org/learn/machine-learning``
+
+    Returns
+    -------
+    str
+        Slug, or ``""`` when the path is not a course.
+    """
+    path = urlparse(url or "").path
+    parts = [p for p in path.split("/") if p]
+    if len(parts) >= 2 and parts[0] == "learn":
+        return parts[1]
+    return ""
+
+
+def parse_coursera_syllabus(url: str) -> CourseOutline:
+    """Fetch a Coursera course title and weekly modules via public API.
+
+    Individual video items require enrollment/auth and are not listed
+    anonymously. Modules are returned as high-level outline entries.
+
+    Parameters
+    ----------
+    url : str
+        Course URL (``/learn/<slug>``).
+
+    Returns
+    -------
+    CourseOutline
+        Title and module lessons; empty lessons on failure.
+    """
+    slug = _coursera_course_slug(url)
+    if not slug:
+        return CourseOutline(platform="Coursera", course_url=url)
+
+    import requests
+
+    from smart_dl.core.proxy import get_current_proxy
+
+    proxy = get_current_proxy()
+    proxies = {"http": proxy, "https": proxy} if proxy else None
+    headers = {
+        "User-Agent": (
+            "Mozilla/5.0 (Windows NT 10.0; Win64; x64) "
+            "AppleWebKit/537.36 (KHTML, like Gecko) "
+            "Chrome/120.0.0.0 Safari/537.36"
+        ),
+        "Accept": "application/json",
+    }
+    base = "https://www.coursera.org"
+    title = ""
+    lessons: List[CourseLesson] = []
+
+    try:
+        meta = requests.get(
+            f"{base}/api/courses.v1?q=slug&slug={slug}",
+            headers=headers,
+            proxies=proxies,
+            timeout=20,
+        )
+        if meta.status_code == 200:
+            elements = meta.json().get("elements") or []
+            if elements:
+                title = (elements[0].get("name") or "").strip()
+    except Exception:
+        pass
+
+    try:
+        mats = requests.get(
+            f"{base}/api/onDemandCourseMaterials.v2?q=slug&slug={slug}&includes=modules",
+            headers=headers,
+            proxies=proxies,
+            timeout=20,
+        )
+        if mats.status_code == 200:
+            linked = mats.json().get("linked") or {}
+            modules = linked.get("onDemandCourseMaterialModules.v1") or []
+            for index, module in enumerate(modules):
+                name = (module.get("name") or f"module-{index + 1}").strip()
+                # Outline entry points at the course page; full item URLs
+                # need enrollment + cookies.
+                lessons.append(
+                    CourseLesson(title=name[:120], url=url, index=index)
+                )
+    except Exception:
+        pass
+
+    return CourseOutline(
+        platform="Coursera",
+        course_url=url,
+        title=title,
+        lessons=lessons,
+    )
+
+
 def parse_course_outline(url: str, html: Optional[str] = None) -> CourseOutline:
     """Parse a course landing page into an outline.
 
@@ -284,6 +408,14 @@ def parse_course_outline(url: str, html: Optional[str] = None) -> CourseOutline:
         behind login or the markup changed).
     """
     platform = platform_name(url)
+
+    # Live Coursera course pages are SPA shells; use the public syllabus API
+    # unless the caller already supplied HTML (unit tests / cached markup).
+    if platform == "Coursera" and html is None:
+        outline = parse_coursera_syllabus(url)
+        if outline.lessons or outline.title:
+            return outline
+
     if html is None:
         html = _fetch_html(url)
 

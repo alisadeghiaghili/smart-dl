@@ -5,6 +5,20 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 ---
 
+## [3.7.0] - 2026-09-10
+
+### Added
+- Coursera support (`coursera.org` course and lecture URLs)
+- Public syllabus API (`courses.v1` + `onDemandCourseMaterials.v2`) for course title and weekly modules
+- Lecture href parsing for `/learn/.../lecture/...` pages
+- Live unit test against the public Machine Learning course API
+
+### Notes
+- Full video downloads on Coursera require an enrolled/logged-in session (cookies).
+- Anonymous API returns course name and week modules only.
+
+---
+
 ## [3.6.0] - 2026-09-10
 
 ### Added

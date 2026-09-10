@@ -36,6 +36,7 @@ PERSIAN_PLATFORMS = {
     # Education platforms (cookie auth required for paid courses)
     "maktabkhooneh.org": "Maktabkhooneh",
     "faradars.org": "Faradars",
+    "coursera.org": "Coursera",
     # Course platforms
     "udemy.com": "Udemy",
     "hotmart.com": "Hotmart",
