@@ -5,6 +5,17 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 ---
 
+## [3.11.0] - 2026-09-10
+
+### Added
+- Castbox.fm channel support: extract original RSS (`rss_url`), episode paths, and direct mp3 URLs
+- Prefer Castbox RSS or embedded mp3s over episode page URLs for downloads
+
+### Verified
+- Live parse of `https://castbox.fm/channel/id2386830` (Madarane): RSS + 20 episodes + 20 mp3 URLs
+
+---
+
 ## [3.10.0] - 2026-09-10
 
 ### Added

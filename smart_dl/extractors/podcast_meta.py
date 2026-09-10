@@ -182,8 +182,18 @@ def rss_from_platform_url(url: str, html: str = "") -> Optional[str]:
     """
     import re
 
+    from smart_dl.extractors.castbox import (
+        extract_castbox_rss_url,
+        is_castbox_url,
+    )
+
     if is_podcast_feed_url(url) and url.lower().endswith((".xml", ".rss")):
         return url
+
+    if is_castbox_url(url) and html:
+        castbox_rss = extract_castbox_rss_url(html)
+        if castbox_rss:
+            return castbox_rss
 
     if not html:
         return None
