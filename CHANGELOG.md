@@ -5,6 +5,16 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 ---
 
+## [3.13.0] - 2026-09-10
+
+### Changed
+- License: **MIT → GPL-3.0-only** (keeps forks free software)
+
+### Added
+- `ROADMAP.md` — prioritized plan vs common downloaders (cookies.txt, speed limit, scheduler, clipboard grabber, …)
+
+---
+
 ## [3.12.1] - 2026-09-10
 
 ### Added
