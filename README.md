@@ -1,4 +1,4 @@
-# SmartDL v3.11.0
+# SmartDL v3.12.0
 
 > **bad connection? hold my retry loop.**
 
@@ -215,6 +215,16 @@ smart-dl URL --quiet --log download.log
 - History records every download outcome (`--history list` / `--history stats`).
 - Portable mode (`--portable` or a `portable.txt` next to the app) stores config and databases under `./data`.
 - Dependency auto-install is off by default. Set `SMARTDL_AUTO_DEPS=1` only if you want first-run `pip install`.
+
+### Authenticated courses (Maktabkhooneh / Coursera / Faradars)
+
+Paid or enrolled lessons need a logged-in browser session:
+
+1. Sign in to the site in Firefox/Edge/Chrome.
+2. In SmartDL interactive mode press `c` and pick that browser (or set cookie browser in config).
+3. Re-run the course URL. yt-dlp and the Coursera items API will reuse those cookies.
+
+Faradars does not publish public lesson lists for most courses — use a course URL after login.
 
 ---
 

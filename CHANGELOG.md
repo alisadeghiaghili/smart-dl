@@ -5,6 +5,18 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 ---
 
+## [3.12.0] - 2026-09-10
+
+### Added
+- Faradars Next.js helpers (`buildId` + page JSON title)
+- Persian strings: lesson count, login hint, RSS found, all episodes
+- README: authenticated course cookie workflow
+
+### Notes
+- Faradars still does not expose public per-lesson APIs; use a course URL after login.
+
+---
+
 ## [3.11.0] - 2026-09-10
 
 ### Added
