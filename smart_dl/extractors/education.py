@@ -559,6 +559,50 @@ def expand_coursera_outline_with_items(
     )
 
 
+def extract_next_data_title(html: str) -> str:
+    """Extract a page title from a Next.js ``__NEXT_DATA__`` payload.
+
+    Useful for Faradars SPA course pages that do not include og:title.
+
+    Parameters
+    ----------
+    html : str
+        Page HTML.
+
+    Returns
+    -------
+    str
+        Title string, or empty when not found.
+    """
+    import json
+
+    match = re.search(
+        r'<script[^>]*id=["\']__NEXT_DATA__["\'][^>]*>(.*?)</script>',
+        html or "",
+        re.S,
+    )
+    if not match:
+        return ""
+    try:
+        data = json.loads(match.group(1))
+    except Exception:
+        return ""
+    page = (data.get("props") or {}).get("pageProps") or {}
+    for key in ("title", "courseTitle", "name"):
+        value = page.get(key)
+        if isinstance(value, str) and value.strip():
+            return value.strip()
+    # Nested common shapes
+    for key in ("course", "product", "data"):
+        node = page.get(key)
+        if isinstance(node, dict):
+            for inner in ("title", "name"):
+                value = node.get(inner)
+                if isinstance(value, str) and value.strip():
+                    return value.strip()
+    return ""
+
+
 def parse_course_outline(url: str, html: Optional[str] = None) -> CourseOutline:
     """Parse a course landing page into an outline.
 
@@ -603,6 +647,8 @@ def parse_course_outline(url: str, html: Optional[str] = None) -> CourseOutline:
         title_match = re.search(r"<title>([^<]+)</title>", html or "", re.IGNORECASE)
     if title_match:
         title = title_match.group(1).strip()
+    if not title and platform == "Faradars":
+        title = extract_next_data_title(html or "")
 
     hrefs = extract_lesson_hrefs(html or "", url)
     lessons = [
@@ -682,7 +728,13 @@ def download_education_course(
     info(f"Found {len(outline)} lesson(s)" + (f" — {outline.title[:60]}" if outline.title else ""))
     ok_count = 0
     fail_count = 0
+    skipped = 0
     for lesson in lessons:
+        # Placeholder entries (weekly modules without item URLs).
+        if not lesson.url or lesson.url.rstrip("/") == url.rstrip("/"):
+            info(f"[{lesson.index + 1}/{len(outline)}] {lesson.title[:60]} — outline only")
+            skipped += 1
+            continue
         info(f"[{lesson.index + 1}/{len(outline)}] {lesson.title[:60]}")
         info_dict = get_yt_formats(lesson.url)
         if not info_dict:
@@ -695,5 +747,12 @@ def download_education_course(
         else:
             fail_count += 1
 
-    success(f"Downloaded {ok_count}/{ok_count + fail_count} lesson(s) → {out_folder}")
+    attempted = ok_count + fail_count
+    if attempted == 0:
+        warn(
+            "No downloadable lecture URLs yet — only outline modules. "
+            "Enroll/log in, then re-run with cookies configured."
+        )
+        return False
+    success(f"Downloaded {ok_count}/{attempted} lesson(s) → {out_folder}")
     return fail_count == 0 and ok_count > 0
