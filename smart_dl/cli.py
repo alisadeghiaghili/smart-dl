@@ -256,17 +256,57 @@ def run_cli():
         return
 
     if args.check_updates:
+        import os
+
+        from smart_dl.core import sub_updates
         from smart_dl.core.subscriptions import get_subscriptions, init_db
+
         init_db()
-        subs = get_subscriptions()
-        if not subs:
+        if not get_subscriptions():
             from smart_dl.ui import info
+
             info("No subscriptions found.")
             return
-        from smart_dl.ui import info
-        for sub in subs:
-            info(f"Checking: {sub['name'] or sub['url']}...")
-            # TODO: implement actual new upload detection
+
+        from smart_dl.ui import error, info, success
+        from smart_dl.ui.progress import stop_event
+
+        result = sub_updates.check_all_subscriptions()
+        info(f"Checked {result['checked']} subscription(s).")
+        if result["total_new"] == 0:
+            success("No new uploads.")
+            return
+
+        success(f"Found {result['total_new']} new upload(s):")
+        for upload in result["new_uploads"]:
+            info(f"  {upload.video_id}  {upload.title[:60]}  {upload.url[:70]}")
+
+        # Opt-in auto-download for discovered uploads.
+        if os.environ.get("SMARTDL_SUBS_AUTODL") != "1":
+            return
+
+        from pathlib import Path
+
+        from smart_dl.core.paths import get_default_download_dir
+        from smart_dl.core.sub_updates import record_subscription_download
+        from smart_dl.extractors.youtube import download_yt
+
+        out = get_default_download_dir()
+        out.mkdir(parents=True, exist_ok=True)
+        for upload in result["new_uploads"]:
+            if stop_event.is_set():
+                break
+            info(f"Downloading {upload.title[:50]}...")
+            ok = download_yt(upload.url, Path(out), "bestvideo+bestaudio/best", False)
+            if ok:
+                record_subscription_download(
+                    int(upload["sub_id"]),
+                    upload.url,
+                    title=upload.title,
+                    video_id=upload.video_id,
+                )
+            else:
+                error(f"Failed: {upload.title[:50]}")
         return
 
     if args.my_subs:
