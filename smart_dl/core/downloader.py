@@ -244,6 +244,12 @@ def build_download_opts(
     saved_b = get_cookie_browser()
     if saved_b:
         opts["cookiesfrombrowser"] = (saved_b, None, None, None)
+    else:
+        from smart_dl.core.cookies_file import get_cookies_file
+
+        cookie_file = get_cookies_file()
+        if cookie_file:
+            opts["cookiefile"] = cookie_file
 
     return opts
 

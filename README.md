@@ -1,4 +1,4 @@
-# SmartDL v3.13.0
+# SmartDL v3.14.0
 
 > **bad connection? hold my retry loop.**
 
@@ -6,7 +6,7 @@ A resilient, multi-threaded media downloader built for unstable networks.
 Designed for users behind weak connections and VPNs — SmartDL never gives up.
 
 [![Python](https://img.shields.io/badge/python-3.8%2B-blue?style=flat-square)](https://www.python.org/)
-[![License: GPL-3.0](https://img.shields.io/badge/license-GPL--3.0-blue?style=flat-square)](LICENSE)
+[![License: Apache-2.0](https://img.shields.io/badge/license-Apache--2.0-blue?style=flat-square)](LICENSE)
 [![Buy Me a Coffee](https://img.shields.io/badge/support-Buy%20Me%20a%20Coffee-yellow?style=flat-square&logo=buy-me-a-coffee)](https://buymeacoffee.com/alisadeghil)
 [![GitHub Downloads](https://img.shields.io/github/downloads/alisadeghiaghili/smart-dl/total?style=flat-square&label=downloads&color=blue)](https://github.com/alisadeghiaghili/smart-dl/releases)
 
@@ -226,6 +226,12 @@ Paid or enrolled lessons need a logged-in browser session:
 
 Faradars does not publish public lesson lists for most courses — use a course URL after login.
 
+**Alternative:** export a Netscape `cookies.txt` from an extension and pass it:
+
+```bash
+smart-dl --cookies-file path/to/cookies.txt "https://www.youtube.com/watch?v=..."
+```
+
 ---
 
 ## Supported Platforms
@@ -274,6 +280,6 @@ Sponsorships fund faster releases, better diagnostics, and long-term maintenance
 
 ## License
 
-[GPL-3.0](LICENSE) — forks and redistributions stay free software.
+[Apache-2.0](LICENSE) — permissive with an explicit patent grant; proprietary tools may link without copyleft.
 
-See [ROADMAP.md](ROADMAP.md) for planned features (clipboard grabber, cookies.txt, speed limit, scheduler, …).
+See [ROADMAP.md](ROADMAP.md) for planned features.

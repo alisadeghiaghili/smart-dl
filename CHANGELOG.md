@@ -5,6 +5,17 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 ---
 
+## [3.14.0] - 2026-09-10
+
+### Changed
+- License: **Apache-2.0** (patent grant; easier embedding than GPL-3.0)
+
+### Added
+- Netscape `cookies.txt` support: `--cookies-file`, config `cookies_file`, yt-dlp `cookiefile`
+- `--diagnose` shows cookies.txt path
+
+---
+
 ## [3.13.0] - 2026-09-10
 
 ### Changed

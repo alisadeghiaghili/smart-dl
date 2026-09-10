@@ -161,6 +161,8 @@ def build_parser():
     # Settings
     parser.add_argument("--lang", type=str, choices=["en", "fa"], default=None,
                         help="Interface language")
+    parser.add_argument("--cookies-file", type=str, default=None,
+                        help="Netscape cookies.txt path (used when no browser cookie source)")
     parser.add_argument("--theme", type=str, default=None,
                         help="CLI theme (dracula, catppuccin, one-dark, etc.)")
     parser.add_argument("--list-themes", action="store_true",
@@ -209,6 +211,20 @@ def run_cli():
     if args.lang:
         from smart_dl.lang import set_lang
         set_lang(args.lang)
+
+    # ─── Cookies file ─────────────────────────────────────────────────────────
+    if args.cookies_file:
+        from smart_dl.core.cookies_file import load_netscape_cookies, set_cookies_file
+
+        set_cookies_file(args.cookies_file)
+        ok, msg = load_netscape_cookies(args.cookies_file)
+        if ok:
+            from smart_dl.ui import success
+            success("Cookies: " + msg)
+        else:
+            from smart_dl.ui import error
+            error("Cookies file: " + msg)
+            sys.exit(1)
 
     # ─── Logging ──────────────────────────────────────────────────────────────
     if args.log:
@@ -725,6 +741,10 @@ def _print_diagnostics() -> None:
                 lines.append(f"    {domain:20s} {count}  {mark}")
         else:
             lines.append(f"  Extract     : [red]FAILED[/red] {cookie_report['error']}")
+    from smart_dl.core.cookies_file import get_cookies_file
+
+    cookie_path = get_cookies_file()
+    lines.append(f"  cookies.txt : {cookie_path or '[dim]not set[/dim]'}")
     lines.append("")
     lines.append("  --- Paths ---")
     lines.append(f"  Portable    : {is_portable()}")
