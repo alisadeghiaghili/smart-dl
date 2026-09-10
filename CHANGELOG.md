@@ -5,6 +5,18 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 ---
 
+## [3.9.0] - 2026-09-10
+
+### Added
+- CLI `--all` and `--max-lessons` for education course downloads
+- Faradars Next.js (`__NEXT_DATA__`) title fallback
+- Skip outline-only lesson placeholders (no wasted yt-dlp calls)
+
+### Changed
+- Education bulk download reports clearly when only weekly modules are available
+
+---
+
 ## [3.8.0] - 2026-09-10
 
 ### Added

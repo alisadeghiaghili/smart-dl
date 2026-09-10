@@ -141,6 +141,12 @@ def build_parser():
     parser.add_argument("--gallery", action="store_true",
                         help="Force gallery mode (image download)")
 
+    # Education courses
+    parser.add_argument("--all", action="store_true",
+                        help="Download all lessons on an education course URL")
+    parser.add_argument("--max-lessons", type=int, default=None,
+                        help="Cap number of education course lessons to download")
+
     # Torrent
     parser.add_argument("--torrent", type=str, default=None,
                         help="Download torrent/magnet link")
@@ -486,7 +492,16 @@ def run_cli():
                 )
 
                 if is_education_url(url):
-                    ok = download_education_course(url, out_folder)
+                    max_lessons = args.max_lessons
+                    if args.all:
+                        max_lessons = None
+                    elif max_lessons is None and not args.all:
+                        # Default: outline only for course landing pages is
+                        # still a full download; use --max-lessons to cap.
+                        max_lessons = None
+                    ok = download_education_course(
+                        url, out_folder, max_lessons=max_lessons
+                    )
                     if not ok:
                         failures += 1
                 else:

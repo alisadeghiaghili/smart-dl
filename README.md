@@ -1,4 +1,4 @@
-# SmartDL v3.8.0
+# SmartDL v3.9.0
 
 > **bad connection? hold my retry loop.**
 
@@ -177,6 +177,11 @@ smart-dl --smart-mode config  # interactive settings
 
 # Image galleries
 smart-dl https://www.pixiv.net/artworks/12345
+
+# Education courses (Maktabkhooneh / Faradars / Coursera)
+smart-dl "https://www.coursera.org/learn/machine-learning"
+smart-dl "https://www.coursera.org/learn/machine-learning" --max-lessons 5
+smart-dl "https://maktabkhooneh.org/course/..." --all
 
 # Torrent
 smart-dl --torrent magnet:?xt=urn:btih:...
