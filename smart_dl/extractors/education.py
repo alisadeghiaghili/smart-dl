@@ -18,8 +18,11 @@ from smart_dl.ui import error, info, print_section, success, warn
 __all__ = [
     "CourseLesson",
     "CourseOutline",
+    "coursera_lecture_url",
     "download_education_course",
+    "expand_coursera_outline_with_items",
     "extract_lesson_hrefs",
+    "fetch_coursera_module_items",
     "is_coursera_url",
     "is_education_url",
     "is_faradars_url",
@@ -391,6 +394,171 @@ def parse_coursera_syllabus(url: str) -> CourseOutline:
     )
 
 
+def coursera_lecture_url(slug: str, item_id: str) -> str:
+    """Build a Coursera lecture URL from a course slug and item id.
+
+    Parameters
+    ----------
+    slug : str
+        Course slug (e.g. ``machine-learning``).
+    item_id : str
+        On-demand material item id.
+
+    Returns
+    -------
+    str
+        ``https://www.coursera.org/learn/{slug}/lecture/{item_id}``
+    """
+    slug = (slug or "").strip("/")
+    item_id = (item_id or "").strip()
+    return f"https://www.coursera.org/learn/{slug}/lecture/{item_id}"
+
+
+def fetch_coursera_module_items(
+    course_id: str,
+    module_id: str,
+    session=None,
+) -> List[dict]:
+    """Fetch material items for one Coursera module.
+
+    Requires an authenticated session (browser cookies) for most courses.
+
+    Parameters
+    ----------
+    course_id : str
+        On-demand course id from ``courses.v1``.
+    module_id : str
+        Module id from ``onDemandCourseMaterialModules.v1``.
+    session : requests.Session, optional
+        Session with cookies; a default session is used when omitted.
+
+    Returns
+    -------
+    list of dict
+        Raw item objects with ``id``, ``name``, ``typeName`` when present.
+    """
+    import requests
+
+    if session is None:
+        session = requests.Session()
+    headers = {
+        "User-Agent": (
+            "Mozilla/5.0 (Windows NT 10.0; Win64; x64) "
+            "AppleWebKit/537.36 (KHTML, like Gecko) "
+            "Chrome/120.0.0.0 Safari/537.36"
+        ),
+        "Accept": "application/json",
+    }
+    url = (
+        "https://www.coursera.org/api/onDemandCourseMaterialItems.v2"
+        f"?courseId={course_id}&moduleId={module_id}"
+    )
+    try:
+        resp = session.get(url, headers=headers, timeout=20)
+        if resp.status_code != 200:
+            return []
+        elements = resp.json().get("elements") or []
+        return [e for e in elements if isinstance(e, dict)]
+    except Exception:
+        return []
+
+
+def expand_coursera_outline_with_items(
+    outline: CourseOutline,
+    *,
+    session=None,
+    slug: str = "",
+) -> CourseOutline:
+    """Replace weekly module placeholders with lecture URLs when possible.
+
+    When *session* is authenticated, module lessons that still point at the
+    course landing page are expanded using the items API. Anonymous sessions
+    leave the outline unchanged.
+
+    Parameters
+    ----------
+    outline : CourseOutline
+        Outline from :func:`parse_coursera_syllabus`.
+    session : requests.Session, optional
+        Cookie-authenticated session.
+    slug : str, optional
+        Course slug for lecture URL building.
+
+    Returns
+    -------
+    CourseOutline
+        Possibly expanded outline (same object type, new lessons list).
+    """
+    if session is None or not slug:
+        return outline
+
+    # Module ids are not stored on CourseLesson; re-fetch materials.
+
+    from smart_dl.core.proxy import get_current_proxy
+
+    proxy = get_current_proxy()
+    proxies = {"http": proxy, "https": proxy} if proxy else None
+    headers = {"User-Agent": "Mozilla/5.0", "Accept": "application/json"}
+    try:
+        mats = session.get(
+            f"https://www.coursera.org/api/onDemandCourseMaterials.v2"
+            f"?q=slug&slug={slug}&includes=modules",
+            headers=headers,
+            proxies=proxies,
+            timeout=20,
+        )
+        if mats.status_code != 200:
+            return outline
+        payload = mats.json()
+        elements = payload.get("elements") or []
+        course_id = ""
+        if elements and isinstance(elements[0], dict):
+            course_id = str(elements[0].get("id") or "")
+        modules = (payload.get("linked") or {}).get(
+            "onDemandCourseMaterialModules.v1"
+        ) or []
+    except Exception:
+        return outline
+
+    lessons: List[CourseLesson] = []
+    index = 0
+    for module in modules:
+        module_id = module.get("id") or ""
+        module_name = (module.get("name") or "").strip()
+        items = fetch_coursera_module_items(
+            course_id,
+            module_id,
+            session=session,
+        )
+        if not items:
+            lessons.append(
+                CourseLesson(
+                    title=module_name or f"module-{index + 1}",
+                    url=outline.course_url,
+                    index=index,
+                )
+            )
+            index += 1
+            continue
+        for item in items:
+            item_id = str(item.get("id") or "")
+            name = (item.get("name") or item_id or "item").strip()
+            lecture = (
+                coursera_lecture_url(slug, item_id) if item_id else outline.course_url
+            )
+            lessons.append(CourseLesson(title=name[:120], url=lecture, index=index))
+            index += 1
+
+    if not lessons:
+        return outline
+    return CourseOutline(
+        platform=outline.platform,
+        course_url=outline.course_url,
+        title=outline.title,
+        lessons=lessons,
+    )
+
+
 def parse_course_outline(url: str, html: Optional[str] = None) -> CourseOutline:
     """Parse a course landing page into an outline.
 
@@ -414,7 +582,13 @@ def parse_course_outline(url: str, html: Optional[str] = None) -> CourseOutline:
     if platform == "Coursera" and html is None:
         outline = parse_coursera_syllabus(url)
         if outline.lessons or outline.title:
-            return outline
+            from smart_dl.core.browser_cookies import session_with_browser_cookies
+
+            slug = _coursera_course_slug(url)
+            auth = session_with_browser_cookies(domains=["coursera.org"])
+            return expand_coursera_outline_with_items(
+                outline, session=auth, slug=slug
+            )
 
     if html is None:
         html = _fetch_html(url)
