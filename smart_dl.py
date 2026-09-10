@@ -1,25 +1,30 @@
-#!/usr/bin/env python3
-# -*- coding: utf-8 -*-
-# ┌─────────────────────────────────────────────────────────────┐
-# │  ░██████╗███╗░░░███╗░█████╗░██████╗░████████╗██████╗░██╗░░  │
-# │  ██╔════╝████╗░████║██╔══██╗██╔══██╗╚══██╔══╝██╔══██╗██║░░  │
-# │  ╚█████╗░██╔████╔██║███████║██████╔╝░░░██║░░░██║░░██║██║░░  │
-# │  ░╚═══██╗██║╚██╔╝██║██╔══██║██╔══██╗░░░██║░░░██║░░██║██║░░  │
-# │  ██████╔╝██║░╚═╝░██║██║░░██║██║░░██║░░░██║░░░██████╔╝█████╗ │
-# │  ╚═════╝░╚═╝░░░░░╚═╝╚═╝░░╚═╝╚═╝░░╚═╝░░░╚═╝░░░╚═════╝░╚════╝ │
-# ├─────────────────────────────────────────────────────────────┤
-# │  author  ──  Hellch!ef  ·  if u know u know                 │
-# │  built   ──  2026-04-09  ·  Tehran, IR                      │
-# │  stack   ──  yt-dlp · rich · requests                       │
-# │  motto   ──  "bad connection? hold my retry loop."          │
-# └─────────────────────────────────────────────────────────────┘
+"""Interactive bootstrap — ``python smart_dl.py``."""
 
-"""SmartDL — Resilient media downloader. Run this file directly or use `python -m smart_dl`."""
+from __future__ import annotations
 
-from smart_dl import ensure_deps
-ensure_deps()
+import sys
 
-from smart_dl.main import main
+from smart_dl import VERSION, deps_available, ensure_deps
+
+
+def _bootstrap() -> int:
+    """Ensure dependencies then run the interactive app.
+
+    Returns
+    -------
+    int
+        Process exit code.
+    """
+    if not deps_available():
+        if not ensure_deps():
+            return 1
+    from smart_dl.main import main
+
+    main()
+    return 0
+
 
 if __name__ == "__main__":
-    main()
+    sys.exit(_bootstrap())
+
+__all__ = ["VERSION", "_bootstrap"]
