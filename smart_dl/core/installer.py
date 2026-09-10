@@ -120,40 +120,64 @@ def _install_wt():
         error("Install failed: " + str(e))
 
 
-def _relaunch_in_wt():
-    import shutil
+def build_relaunch_argv() -> list:
+    """Return the argv used to relaunch the interactive SmartDL app.
+
+    Uses ``python -m smart_dl`` so relaunch does not depend on a script path
+    inside the package (which would not start the UI).
+
+    Returns
+    -------
+    list of str
+        Command arguments starting with the current Python executable.
+    """
+    return [sys.executable, "-m", "smart_dl"]
+
+
+def _relaunch_in_wt() -> None:
+    """Relaunch SmartDL inside Windows Terminal after this process exits.
+
+    A detached ``cmd`` helper waits for the current PID to exit, then starts
+    ``wt`` (or ``cmd``) with :func:`build_relaunch_argv`.
+    """
     import tempfile
-    python_exe = sys.executable
-    script     = os.path.abspath(__file__)
-    pid        = os.getpid()
-    _py_launcher = shutil.which("py") or shutil.which("python") or python_exe
-    py_q  = '"' + _py_launcher + '"'
-    sc_q  = '"' + script + '"'
-    cur_path = os.environ.get("PATH","")
-    new_path = cur_path
+
+    pid = os.getpid()
+    argv = build_relaunch_argv()
+    py_q = '"' + argv[0] + '"'
+    args_q = " ".join('"' + a + '"' for a in argv[1:])
+    launch = py_q + (" " + args_q if args_q else "")
+    cur_path = os.environ.get("PATH", "")
     bat_lines = [
         "@echo off",
-        f"set PATH={new_path}",
+        f"set PATH={cur_path}",
         ":wait",
         "timeout /t 1 /nobreak >nul",
-        f"tasklist /fi \"PID eq {pid}\" 2>nul | find \"{pid}\" >nul 2>&1",
+        f'tasklist /fi "PID eq {pid}" 2>nul | find "{pid}" >nul 2>&1',
         "if not errorlevel 1 goto wait",
         "timeout /t 1 /nobreak >nul",
         "where wt >nul 2>&1",
         "if not errorlevel 1 (",
-        f"    start \"SmartDL\" wt new-tab {py_q} {sc_q}",
+        f'    start "SmartDL" wt new-tab {launch}',
         ") else (",
-        f"    start \"SmartDL\" cmd /k {py_q} {sc_q}",
+        f'    start "SmartDL" cmd /k {launch}',
         ")",
-        "(goto) 2>nul & del /f /q \"%~f0\"",
+        '(goto) 2>nul & del /f /q "%~f0"',
     ]
     bat_content = "\r\n".join(bat_lines)
-    tf = tempfile.NamedTemporaryFile(mode="w", suffix=".bat", delete=False,
-                                      encoding="utf-8", dir=tempfile.gettempdir())
-    tf.write(bat_content); tf.close()
-    subprocess.Popen(["cmd","/c", tf.name],
-                     creationflags=subprocess.DETACHED_PROCESS|
-                                   subprocess.CREATE_NEW_PROCESS_GROUP)
+    tf = tempfile.NamedTemporaryFile(
+        mode="w",
+        suffix=".bat",
+        delete=False,
+        encoding="utf-8",
+        dir=tempfile.gettempdir(),
+    )
+    tf.write(bat_content)
+    tf.close()
+    creation = getattr(subprocess, "DETACHED_PROCESS", 0) | getattr(
+        subprocess, "CREATE_NEW_PROCESS_GROUP", 0
+    )
+    subprocess.Popen(["cmd", "/c", tf.name], creationflags=creation)
     info("Relaunching in Windows Terminal...")
     time.sleep(1)
     sys.exit(0)

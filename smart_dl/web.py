@@ -11,7 +11,7 @@ import streamlit as st
 import yt_dlp
 
 from smart_dl import VERSION
-from smart_dl.core.downloader import build_download_opts, get_smart_mode, save_smart_mode
+from smart_dl.core.downloader import get_smart_mode, save_smart_mode
 from smart_dl.core.history import get_history, get_history_stats
 from smart_dl.core.history import init_db as init_history_db
 from smart_dl.core.proxy import apply_proxy, clear_proxy, get_current_proxy
@@ -50,30 +50,56 @@ def do_download(url: str, out_dir: str, fmt: str, is_audio: bool = False,
                 clip: str = None, sponsorblock: bool = False,
                 audio_format: str = "mp3", audio_quality: str = "192",
                 embed_metadata: bool = False, embed_thumbnail: bool = False):
-    """Download a URL."""
-    from smart_dl.core.retry import retry_with_backoff
-    from smart_dl.settings import DL_SETTINGS
+    """Download a URL through the shared CLI download engine.
 
-    opts = build_download_opts(
-        fmt=fmt, is_audio=is_audio, clip=clip, sponsorblock=sponsorblock,
-        audio_format=audio_format, audio_quality=audio_quality,
-        embed_metadata=embed_metadata, embed_thumbnail=embed_thumbnail,
+    Parameters
+    ----------
+    url : str
+        Source URL.
+    out_dir : str
+        Destination directory.
+    fmt : str
+        yt-dlp format selector.
+    is_audio : bool, optional
+        Audio-only extraction.
+    clip : str, optional
+        ``START-END`` download section.
+    sponsorblock : bool, optional
+        Skip sponsor segments.
+    audio_format : str, optional
+        Audio codec when ``is_audio``.
+    audio_quality : str, optional
+        Audio bitrate.
+    embed_metadata : bool, optional
+        Embed title/artist metadata.
+    embed_thumbnail : bool, optional
+        Embed thumbnail.
+
+    Returns
+    -------
+    bool
+        ``True`` on success.
+    """
+    from smart_dl.core.downloader import download_with_features
+
+    out_path = Path(out_dir)
+    out_path.mkdir(parents=True, exist_ok=True)
+    ok = download_with_features(
+        url,
+        out_path,
+        fmt=fmt,
+        is_audio=is_audio,
+        clip=clip,
+        sponsorblock=sponsorblock,
+        audio_format=audio_format,
+        audio_quality=audio_quality,
+        embed_metadata=embed_metadata,
+        embed_thumbnail=embed_thumbnail,
+        quiet=True,
     )
-    opts["outtmpl"] = str(Path(out_dir) / "%(title)s [%(format_id)s].%(ext)s")
-    opts["quiet"] = True
-    opts["progress_hooks"] = []
-
-    def _do():
-        with yt_dlp.YoutubeDL(opts) as ydl:
-            ydl.download([url])
-
-    maxr = DL_SETTINGS["max_retries"]
-    try:
-        retry_with_backoff(_do, max_retries=maxr)
-        return True
-    except Exception as e:
-        st.error(f"Download failed: {str(e)[:200]}")
-        return False
+    if not ok:
+        st.error("Download failed. See CLI logs or try again.")
+    return ok
 
 
 # ─── Sidebar ──────────────────────────────────────────────────────────────
