@@ -5,6 +5,20 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 ---
 
+## [3.4.0] - 2026-09-10
+
+### Added
+- Windows **onedir** PyInstaller spec (`packaging/windows/SmartDL.spec`)
+- GitHub Actions workflow `release-windows.yml` (zip + `SHA256SUMS.txt` on Release)
+- `smart_dl.core.packaging_utils` — artifact naming and checksum helpers
+- README section for the portable EXE and SmartScreen guidance
+
+### Notes
+- Builds are **not code-signed** (no certificate). Users may need
+  SmartScreen **More info → Run anyway**. Prefer pip when possible.
+
+---
+
 ## [3.3.0] - 2026-09-10
 
 ### Added

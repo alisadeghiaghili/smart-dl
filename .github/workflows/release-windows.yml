@@ -1,0 +1,67 @@
+name: Windows EXE
+
+on:
+  release:
+    types: [published]
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: "Tag or version to attach assets to (e.g. v3.4.0)"
+        required: false
+        default: ""
+
+permissions:
+  contents: write
+
+jobs:
+  build-windows:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install build tools
+        run: |
+          python -m pip install --upgrade pip
+          pip install -e .
+          pip install pyinstaller
+
+      - name: Build onedir bundle
+        run: |
+          pyinstaller --noconfirm packaging/windows/SmartDL.spec
+
+      - name: Package zip + checksums
+        shell: pwsh
+        run: |
+          $ver = (Select-String -Path pyproject.toml -Pattern '^version = "(.+)"').Matches[0].Groups[1].Value
+          $base = "SmartDL-v$ver-win-x64"
+          $stage = Join-Path $env:RUNNER_TEMP $base
+          Copy-Item -Recurse dist/SmartDL $stage
+          $zip = "$base.zip"
+          Compress-Archive -Path $stage -DestinationPath $zip -Force
+          python -c "from pathlib import Path; from smart_dl.core.packaging_utils import write_checksums; write_checksums([Path(r'$zip')], Path('SHA256SUMS.txt'))"
+          Get-Content SHA256SUMS.txt
+
+      - name: Upload build artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: smartdl-windows
+          path: |
+            SmartDL-v*-win-x64.zip
+            SHA256SUMS.txt
+
+      - name: Attach to GitHub Release
+        if: github.event_name == 'release' || (github.event_name == 'workflow_dispatch' && inputs.tag != '')
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        shell: pwsh
+        run: |
+          $tag = "${{ github.event.release.tag_name }}"
+          if (-not $tag) { $tag = "${{ inputs.tag }}" }
+          if (-not $tag) { Write-Host "No tag; skipping upload"; exit 0 }
+          $files = Get-ChildItem SmartDL-v*-win-x64.zip, SHA256SUMS.txt
+          gh release upload $tag @($files.FullName) --clobber
