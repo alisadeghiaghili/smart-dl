@@ -6,7 +6,7 @@ A resilient, multi-threaded media downloader built for unstable networks.
 Designed for users behind weak connections and VPNs — SmartDL never gives up.
 
 [![Python](https://img.shields.io/badge/python-3.8%2B-blue?style=flat-square)](https://www.python.org/)
-[![License: MIT](https://img.shields.io/badge/license-MIT-green?style=flat-square)](LICENSE)
+[![License: GPL-3.0](https://img.shields.io/badge/license-GPL--3.0-blue?style=flat-square)](LICENSE)
 [![Buy Me a Coffee](https://img.shields.io/badge/support-Buy%20Me%20a%20Coffee-yellow?style=flat-square&logo=buy-me-a-coffee)](https://buymeacoffee.com/alisadeghil)
 [![GitHub Downloads](https://img.shields.io/github/downloads/alisadeghiaghili/smart-dl/total?style=flat-square&label=downloads&color=blue)](https://github.com/alisadeghiaghili/smart-dl/releases)
 
@@ -274,4 +274,6 @@ Sponsorships fund faster releases, better diagnostics, and long-term maintenance
 
 ## License
 
-[MIT](LICENSE)
+[GPL-3.0](LICENSE) — forks and redistributions stay free software.
+
+See [ROADMAP.md](ROADMAP.md) for planned features (clipboard grabber, cookies.txt, speed limit, scheduler, …).

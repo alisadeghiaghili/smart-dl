@@ -6,7 +6,7 @@
 طراحی شده برای کاربران پشت اتصالات ضعیف و VPN — SmartDL هرگز تسلیم نمی‌شود.
 
 [![Python](https://img.shields.io/badge/python-3.8%2B-blue?style=flat-square)](https://www.python.org/)
-[![License: MIT](https://img.shields.io/badge/license-MIT-green?style=flat-square)](LICENSE)
+[![License: GPL-3.0](https://img.shields.io/badge/license-GPL--3.0-blue?style=flat-square)](LICENSE)
 
 > اگر SmartDL در ساعت 3 صبح دانلود شکسته‌ات رو نجات داد — می‌دونی چیکار باید بکنی. ☕  
 > **[buymeacoffee.com/alisadeghil](https://buymeacoffee.com/alisadeghil)**
