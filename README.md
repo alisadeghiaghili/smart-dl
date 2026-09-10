@@ -1,4 +1,4 @@
-# SmartDL v3.3.0
+# SmartDL v3.4.0
 
 > **bad connection? hold my retry loop.**
 
@@ -81,7 +81,13 @@ Then close and reopen your terminal.
 pip install smart-dl
 ```
 
-### Option 2: clone and run
+### Option 2: Windows portable EXE (no Python install)
+
+Download `SmartDL-v*-win-x64.zip` from the [Releases](https://github.com/alisadeghiaghili/smart-dl/releases) page, verify `SHA256SUMS.txt`, extract, and run `SmartDL.exe`.
+
+**If Windows SmartScreen appears:** the EXE is not code-signed. Choose **More info → Run anyway**, or install via pip instead. Antivirus false positives on PyInstaller onedir bundles are common; the zip hash on the release page lets you confirm the file you downloaded.
+
+### Option 3: clone and run
 
 ```bash
 git clone https://github.com/alisadeghiaghili/smart-dl.git
