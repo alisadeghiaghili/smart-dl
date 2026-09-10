@@ -221,9 +221,12 @@ def build_download_opts(
         opts["writesubtitles"] = True
         opts["subtitlesformat"] = "srt/best"
 
-    # Geo-bypass
+    # Geo-bypass (yt-dlp: boolean geo_bypass + optional country code)
     if geo_bypass:
-        opts["geo_verification_proxy"] = geo_bypass
+        opts["geo_bypass"] = True
+        token = str(geo_bypass).strip().upper()
+        if token and token not in ("1", "TRUE", "YES", "ON"):
+            opts["geo_bypass_country"] = token
 
     # Impersonate
     if impersonate:

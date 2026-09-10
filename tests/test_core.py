@@ -104,6 +104,18 @@ class TestDownloader:
         opts = build_download_opts(output_format="mkv")
         assert opts["merge_output_format"] == "mkv"
 
+    def test_build_download_opts_geo_bypass_country(self):
+        from smart_dl.core.downloader import build_download_opts
+        opts = build_download_opts(geo_bypass="US")
+        assert opts["geo_bypass"] is True
+        assert opts["geo_bypass_country"] == "US"
+
+    def test_build_download_opts_geo_bypass_flag_only(self):
+        from smart_dl.core.downloader import build_download_opts
+        opts = build_download_opts(geo_bypass="true")
+        assert opts["geo_bypass"] is True
+        assert "geo_bypass_country" not in opts
+
 
 class TestThemes:
     def test_themes_exist(self):

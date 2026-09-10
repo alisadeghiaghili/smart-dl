@@ -1,6 +1,4 @@
 """General extractor — handles any yt-dlp-supported site."""
-from urllib.parse import urlparse
-
 import yt_dlp
 from rich.panel import Panel
 
@@ -17,19 +15,15 @@ except ImportError:
         return key
 
 
-# Known Persian platforms and their yt-dlp extractors
+# Known platforms and their yt-dlp extractors (host-aware lookup)
 PERSIAN_PLATFORMS = {
     "aparat.com": "Aparat",
     "filimo.com": "Filimo",
     "namasha.com": "Namasha",
     "radiojavan.com": "Radio Javan",
-    "music.aparat.com": "Aparat Music",
-    "trello.com": "Trello",
     "lenzmovie.com": "LenzMovie",
     "filmio.ir": "Filmio",
-    "vidio.com": "Vidio",
     "abornet.ir": "Abornet",
-    "aion.iran": "Aion",
     "moshaverfilm.com": "MoshaverFilm",
     "filmnet.com": "FilmNet",
     "hamrahweb.com": "HamrahWeb",
@@ -52,19 +46,21 @@ PERSIAN_PLATFORMS = {
 
 
 def detect_platform(url):
-    """Detect which platform a URL belongs to."""
-    parsed = urlparse(url)
-    domain = parsed.netloc.lower()
+    """Detect which platform a URL belongs to.
 
-    # Remove www. prefix
-    if domain.startswith("www."):
-        domain = domain[4:]
+    Parameters
+    ----------
+    url : str
+        Absolute URL.
 
-    for platform_domain, platform_name in PERSIAN_PLATFORMS.items():
-        if domain == platform_domain or domain.endswith("." + platform_domain):
-            return platform_name
+    Returns
+    -------
+    str or None
+        Platform label, or ``None`` when the host is unknown.
+    """
+    from smart_dl.core.net_utils import platform_from_url
 
-    return None
+    return platform_from_url(url, PERSIAN_PLATFORMS)
 
 
 def get_general_info(url):

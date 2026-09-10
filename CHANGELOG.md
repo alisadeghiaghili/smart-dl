@@ -5,6 +5,23 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 ---
 
+## [3.2.0] - 2026-09-10
+
+### Added
+- `smart_dl.core.sub_updates` — detect new uploads on subscribed channels
+- `--check-updates` lists new videos (opt-in auto-download with `SMARTDL_SUBS_AUTODL=1`)
+- Subscription helpers: `get_subscription_by_id`, `get_subscription_video_ids`
+- Tests for subscription detection and platform mapping
+
+### Changed
+- Platform detection is host-aware and no longer matches lookalike domains
+- `--geo-bypass` maps to yt-dlp `geo_bypass` / `geo_bypass_country`
+
+### Fixed
+- Removed junk entries from the platform map (`trello.com`, `vidio.com`, `aion.iran`, …)
+
+---
+
 ## [3.1.0] - 2026-09-10
 
 ### Added
