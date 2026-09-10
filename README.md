@@ -1,4 +1,4 @@
-# SmartDL v3.1.0
+# SmartDL v3.2.0
 
 > **bad connection? hold my retry loop.**
 
@@ -161,7 +161,8 @@ smart-dl --history stats
 
 # Subscriptions
 smart-dl --subscribe https://youtube.com/@channel
-smart-dl --check-updates
+smart-dl --check-updates          # list new uploads
+# SMARTDL_SUBS_AUTODL=1 smart-dl --check-updates  # also download them
 smart-dl --my-subs
 
 # Smart Mode
