@@ -1,4 +1,4 @@
-# SmartDL v3.2.0
+# SmartDL v3.3.0
 
 > **bad connection? hold my retry loop.**
 
