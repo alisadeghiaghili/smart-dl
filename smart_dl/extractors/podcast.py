@@ -325,6 +325,46 @@ def handle_podcast(url, out_folder, *, max_episodes: int | None = None,
 
         # Platform page → try to discover RSS
         if is_podcast_platform_url(url) and not _is_rss(text) and "xml" not in ct:
+            from smart_dl.extractors.castbox import (
+                castbox_episode_lessons,
+                is_castbox_url,
+            )
+
+            if is_castbox_url(url):
+                feed = rss_from_platform_url(url, text)
+                if feed:
+                    info("Found Castbox RSS: " + feed[:80])
+                    return handle_podcast(
+                        feed,
+                        out_folder,
+                        max_episodes=max_episodes,
+                        download_all=download_all,
+                    )
+                from smart_dl.extractors.castbox import extract_castbox_audio_urls
+
+                audio_urls = extract_castbox_audio_urls(text)
+                if audio_urls:
+                    info(f"Found {len(audio_urls)} Castbox audio file(s)")
+                    fmt = podcast_quality_menu(raw_sz=raw_sz)
+                    if fmt is None:
+                        return False
+                    eps = [
+                        {"title": u.rsplit("/", 1)[-1][:80], "url": u}
+                        for u in audio_urls
+                    ]
+                    return download_episodes(
+                        eps, out_folder, fmt, max_episodes=max_episodes
+                    )
+                eps = castbox_episode_lessons(text, limit=50)
+                if eps:
+                    info(f"Found {len(eps)} Castbox episode link(s)")
+                    fmt = podcast_quality_menu(raw_sz=raw_sz)
+                    if fmt is None:
+                        return False
+                    return download_episodes(
+                        eps, out_folder, fmt, max_episodes=max_episodes
+                    )
+
             feed = rss_from_platform_url(url, text)
             if feed:
                 info("Found RSS feed: " + feed[:80])

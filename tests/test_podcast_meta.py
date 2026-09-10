@@ -76,3 +76,12 @@ class TestRssFromPlatform:
 
     def test_none_without_feed(self) -> None:
         assert rss_from_platform_url("https://castbox.fm/show/1", "<html></html>") is None
+
+
+class TestCastboxRssDiscovery:
+    def test_rss_from_castbox_embedded_json(self) -> None:
+        html = (
+            'window.x = {"rss_url":"https%3A%2F%2Fexample.com%2Ffeed%2Fmp3%2F"};'
+        )
+        rss = rss_from_platform_url("https://castbox.fm/channel/id1", html)
+        assert rss == "https://example.com/feed/mp3/"

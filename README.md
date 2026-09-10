@@ -1,4 +1,4 @@
-# SmartDL v3.10.0
+# SmartDL v3.11.0
 
 > **bad connection? hold my retry loop.**
 
@@ -202,7 +202,7 @@ smart-dl --portable
 # Podcasts
 smart-dl "https://feeds.npr.org/510289/podcast.xml"
 smart-dl "https://example.com/show.xml" --all-episodes
-smart-dl "https://example.com/show.xml" --max-episodes 5
+smart-dl "https://castbox.fm/channel/id2386830" --all-episodes
 smart-dl "https://soundcloud.com/user/track"
 
 # Quiet mode with file logging
