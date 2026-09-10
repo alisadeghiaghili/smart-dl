@@ -675,6 +675,13 @@ def parse_course_outline(url: str, html: Optional[str] = None) -> CourseOutline:
         title = title_match.group(1).strip()
     if not title and platform == "Faradars":
         title = extract_next_data_title(html or "")
+        if not title and html:
+            from smart_dl.extractors.faradars_next import (
+                fetch_faradars_page_json,
+                title_from_next_json,
+            )
+
+            title = title_from_next_json(fetch_faradars_page_json(url, html=html))
 
     hrefs = extract_lesson_hrefs(html or "", url)
     # Faradars SPA often has no /lesson/ links; surface course paths as outline.

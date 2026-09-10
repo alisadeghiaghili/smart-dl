@@ -197,8 +197,9 @@ def main() -> None:
                         + (f" — {outline.title[:50]}" if outline.title else "")
                     )
                     cap = IntPrompt.ask(
-                        "  [bold yellow]How many lessons?[/bold yellow] "
-                        "[dim](0 = all)[/dim]",
+                        "  [bold yellow]"
+                        + t("how_many_lessons")
+                        + "[/bold yellow]",
                         default=min(20, total),
                     )
                     max_lessons = None if cap == 0 else max(0, int(cap))
