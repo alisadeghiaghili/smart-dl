@@ -5,6 +5,17 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 ---
 
+## [3.10.0] - 2026-09-10
+
+### Added
+- Podcast platform detection (SoundCloud, Anchor, Spotify, Castbox, Podbean, …)
+- RSS episode listing and batch download (`--all-episodes`, `--max-episodes`)
+- Interactive RSS picker: `a` downloads every episode
+- Discover RSS from platform pages (`link rel=alternate`)
+- Live-tested against a public NPR podcast feed
+
+---
+
 ## [3.9.2] - 2026-09-10
 
 ### Fixed

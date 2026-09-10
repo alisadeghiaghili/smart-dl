@@ -1,4 +1,4 @@
-# SmartDL v3.9.2
+# SmartDL v3.10.0
 
 > **bad connection? hold my retry loop.**
 
@@ -198,6 +198,12 @@ smart-dl --proxy socks5://127.0.0.1:10808
 
 # Portable mode
 smart-dl --portable
+
+# Podcasts
+smart-dl "https://feeds.npr.org/510289/podcast.xml"
+smart-dl "https://example.com/show.xml" --all-episodes
+smart-dl "https://example.com/show.xml" --max-episodes 5
+smart-dl "https://soundcloud.com/user/track"
 
 # Quiet mode with file logging
 smart-dl URL --quiet --log download.log

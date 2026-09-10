@@ -148,6 +148,12 @@ def build_parser():
     parser.add_argument("--max-lessons", type=int, default=None,
                         help="Cap number of education course lessons (default: 20)")
 
+    # Podcasts
+    parser.add_argument("--all-episodes", action="store_true",
+                        help="Download every episode from a podcast RSS feed")
+    parser.add_argument("--max-episodes", type=int, default=None,
+                        help="Cap number of podcast episodes to download")
+
     # Torrent
     parser.add_argument("--torrent", type=str, default=None,
                         help="Download torrent/magnet link")
@@ -396,6 +402,7 @@ def run_cli():
         sys.exit(1)
 
     # ─── Process URLs ─────────────────────────────────────────────────────────
+    from smart_dl.extractors.podcast_meta import is_podcast_platform_url
     from smart_dl.ui import error, info, success, warn
     from smart_dl.utils import is_aparat_url, is_playlist_url, is_podcast_url, is_youtube_url
 
@@ -481,9 +488,16 @@ def run_cli():
                     failures += 1
 
             # ── Podcasts ──────────────────────────────────────────────────────
-            elif is_podcast_url(url):
+            elif is_podcast_url(url) or is_podcast_platform_url(url):
                 from smart_dl.extractors.podcast import handle_podcast
-                failures += count_failure(handle_podcast(url, out_folder))
+                failures += count_failure(
+                    handle_podcast(
+                        url,
+                        out_folder,
+                        max_episodes=args.max_episodes,
+                        download_all=args.all_episodes,
+                    )
+                )
 
             # ── Education (Maktabkhooneh / Faradars / Coursera) ───────────────
             else:

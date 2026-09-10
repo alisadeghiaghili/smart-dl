@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "smart-dl"
-version = "3.9.2"
+version = "3.10.0"
 description = "Resilient media downloader for unstable networks — YouTube, Aparat, podcasts, and 1800+ sites"
 readme = "README.md"
 license = "MIT"
