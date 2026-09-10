@@ -33,6 +33,9 @@ PERSIAN_PLATFORMS = {
     "cinemakhd.com": "CinemaKHD",
     "cinemahez.ir": "CinemaHez",
     "downloadha.com": "DownloadHa",
+    # Education platforms (cookie auth required for paid courses)
+    "maktabkhooneh.org": "Maktabkhooneh",
+    "faradars.org": "Faradars",
     # Course platforms
     "udemy.com": "Udemy",
     "hotmart.com": "Hotmart",

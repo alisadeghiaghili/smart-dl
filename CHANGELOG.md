@@ -5,6 +5,20 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 ---
 
+## [3.6.0] - 2026-09-10
+
+### Added
+- Maktabkhooneh / Faradars education extractors (`extractors/education.py`)
+- Course outline parsing: HTML lesson hrefs + Maktabkhooneh Nuxt SSR slugs
+- Free-preview `mp4`/`m3u8` URL extraction from course pages
+- Interactive and CLI routing for education URLs (cookie auth for paid lessons)
+
+### Notes
+- Paid course lessons still require a logged-in browser session (`C` cookie settings).
+- Live check on a public course page: 38 lesson URLs + 2 preview media URLs parsed.
+
+---
+
 ## [3.5.0] - 2026-09-10
 
 ### Added
