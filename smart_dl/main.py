@@ -22,6 +22,7 @@ from smart_dl.extractors.education import (
 )
 from smart_dl.extractors.general import detect_platform
 from smart_dl.extractors.podcast import handle_podcast
+from smart_dl.extractors.podcast_meta import is_podcast_platform_url
 from smart_dl.extractors.youtube import (
     download_yt,
     get_yt_formats,
@@ -179,7 +180,7 @@ def main() -> None:
                     if fmt is not None:
                         download_yt(url, out_folder, fmt, is_audio)
 
-            elif is_podcast_url(url):
+            elif is_podcast_url(url) or is_podcast_platform_url(url):
                 handle_podcast(url, out_folder)
 
             elif is_education_url(url):

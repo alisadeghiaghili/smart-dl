@@ -221,9 +221,94 @@ def download_podcast_url(url, out_folder, fmt_tuple):
             time.sleep(min(attempt * 2, 30))
 
 
-def handle_podcast(url, out_folder) -> bool:
-    """Handle podcast URL — detect type and download."""
+def download_episodes(
+    episodes,
+    out_folder,
+    fmt_tuple,
+    *,
+    max_episodes: int | None = None,
+) -> bool:
+    """Download a sequence of podcast episodes with one shared format.
+
+    Parameters
+    ----------
+    episodes : Iterable
+        Items with ``url`` and optional ``title``.
+    out_folder : pathlib.Path
+        Destination directory.
+    fmt_tuple : tuple
+        Quality row from :func:`podcast_quality_menu`.
+    max_episodes : int, optional
+        Cap on episodes processed.
+
+    Returns
+    -------
+    bool
+        ``True`` when at least one episode succeeded and none failed.
+    """
+    stop_event.clear()
+    out_folder.mkdir(parents=True, exist_ok=True)
+    ok = failed = 0
+    total = len(list(episodes)) if hasattr(episodes, "__len__") else None
+    selected = list(episodes)
+    if max_episodes is not None:
+        selected = selected[: max(0, int(max_episodes))]
+
+    for index, ep in enumerate(selected, 1):
+        if stop_event.is_set():
+            break
+        url = ep["url"] if isinstance(ep, dict) else getattr(ep, "url", "")
+        title = ""
+        if isinstance(ep, dict):
+            title = ep.get("title") or ""
+        elif hasattr(ep, "title"):
+            title = ep.title
+        info(f"[{index}/{total or len(selected)}] {(title or url)[:70]}")
+        try:
+            download_podcast_url(url, out_folder, fmt_tuple)
+            ok += 1
+        except Exception as exc:
+            warn("Failed: " + str(exc)[:80])
+            failed += 1
+
+    if ok == 0 and failed == 0:
+        return False
+    success(f"Downloaded {ok}/{ok + failed} episode(s) → {out_folder}")
+    return failed == 0 and ok > 0
+
+
+def handle_podcast(url, out_folder, *, max_episodes: int | None = None,
+                   download_all: bool = False) -> bool:
+    """Handle podcast URL — detect type and download.
+
+    Parameters
+    ----------
+    url : str
+        Feed, audio file, or podcast platform page.
+    out_folder : pathlib.Path
+        Destination directory.
+    max_episodes : int, optional
+        Cap when downloading multiple episodes.
+    download_all : bool, optional
+        Skip the episode picker and download every episode in the feed.
+
+    Returns
+    -------
+    bool
+        ``True`` on success.
+    """
     print_section("Analyzing podcast link", "\U0001f3a4")
+    from smart_dl.extractors.podcast_meta import (
+        detect_podcast_platform,
+        is_podcast_platform_url,
+        parse_rss_episodes,
+        rss_from_platform_url,
+    )
+
+    platform = detect_podcast_platform(url)
+    if platform != "Unknown":
+        info("Detected platform: " + platform)
+
     prx = get_current_proxy()
     try:
         s = requests.Session()
@@ -238,29 +323,54 @@ def handle_podcast(url, out_folder) -> bool:
         ct   = resp.headers.get("Content-Type","")
         text = resp.text
 
+        # Platform page → try to discover RSS
+        if is_podcast_platform_url(url) and not _is_rss(text) and "xml" not in ct:
+            feed = rss_from_platform_url(url, text)
+            if feed:
+                info("Found RSS feed: " + feed[:80])
+                return handle_podcast(
+                    feed,
+                    out_folder,
+                    max_episodes=max_episodes,
+                    download_all=download_all,
+                )
+
         # RSS feed
         if "xml" in ct or "rss" in ct or _is_rss(text):
-            items = _parse_rss(text)
-            if not items:
+            episodes = parse_rss_episodes(text, limit=50)
+            if not episodes:
                 error("RSS feed found but no episodes.")
                 return False
             t = Table(box=box.ROUNDED, show_header=True, border_style="cyan", padding=(0,1))
             t.add_column("#",     style="bold cyan", width=5, justify="right")
             t.add_column("Title", style="white")
-            for i,(title,_) in enumerate(items[:20],1):
-                t.add_row(str(i), title[:70])
+            for i, ep in enumerate(episodes[:20], 1):
+                t.add_row(str(i), (ep.title or "Episode")[:70])
             console.print(t)
-            while True:
-                sel = Prompt.ask("  [bold yellow]Episode #[/bold yellow]", default="1").strip()
-                if sel.isdigit() and 1 <= int(sel) <= len(items[:20]):
-                    _, ep_url = items[int(sel)-1]
-                    break
-                warn("Invalid selection.")
+
             fmt = podcast_quality_menu(raw_sz=raw_sz)
             if fmt is None:
                 return False
-            download_podcast_url(ep_url, out_folder, fmt)
-            return True
+
+            if download_all:
+                return download_episodes(
+                    episodes, out_folder, fmt, max_episodes=max_episodes
+                )
+
+            while True:
+                sel = Prompt.ask(
+                    "  [bold yellow]Episode #[/bold yellow] [dim](a = all)[/dim]",
+                    default="1",
+                ).strip()
+                if sel.lower() == "a":
+                    return download_episodes(
+                        episodes, out_folder, fmt, max_episodes=max_episodes
+                    )
+                if sel.isdigit() and 1 <= int(sel) <= len(episodes[:20]):
+                    ep = episodes[int(sel) - 1]
+                    download_podcast_url(ep.url, out_folder, fmt)
+                    return True
+                warn("Invalid selection.")
 
         # direct audio
         if "audio" in ct or url.lower().endswith((".mp3",".m4a",".ogg",".opus",".flac",".wav")):
