@@ -17,28 +17,28 @@ def test_quality_to_format_presets():
 
 def test_queue_download_item_routes_education_url():
     """Test that queue_download_item routes Maktabkhooneh URLs to education extractor."""
-    url = "https://maktabkhooneh.org/course/learn-python"
+    item = {"id": 1, "url": "https://maktabkhooneh.org/course/learn-python", "format_str": "best", "is_audio": False}
 
-    with patch("smart_dl.utils.is_education_url", return_value=True), \
+    with patch("smart_dl.extractors.education.is_education_url", return_value=True), \
          patch("smart_dl.extractors.education.download_education_course", return_value=True) as mock_edu:
 
         from smart_dl.cli import queue_download_item
 
-        res = queue_download_item(url, "/tmp/out")
+        res = queue_download_item(item, "/tmp/out")
         assert res is True
         mock_edu.assert_called_once()
 
 
 def test_queue_download_item_routes_podcast_url():
     """Test that queue_download_item routes podcast RSS URLs to podcast extractor."""
-    url = "https://castbox.fm/channel/id12345"
+    item = {"id": 2, "url": "https://castbox.fm/channel/id12345", "format_str": "best", "is_audio": False}
 
-    with patch("smart_dl.utils.is_education_url", return_value=False), \
+    with patch("smart_dl.extractors.education.is_education_url", return_value=False), \
          patch("smart_dl.utils.is_podcast_url", return_value=True), \
          patch("smart_dl.extractors.podcast.download_podcast_url", return_value=True) as mock_pod:
 
         from smart_dl.cli import queue_download_item
 
-        res = queue_download_item(url, "/tmp/out")
+        res = queue_download_item(item, "/tmp/out")
         assert res is True
         mock_pod.assert_called_once()
