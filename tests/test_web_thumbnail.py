@@ -1,6 +1,4 @@
-"""Tests for Web UI thumbnail selection handling None dimensions."""
-
-from smart_dl.web import _best_thumbnail
+from smart_dl.utils import best_thumbnail as _best_thumbnail
 
 
 def test_best_thumbnail_handles_none_dimensions():

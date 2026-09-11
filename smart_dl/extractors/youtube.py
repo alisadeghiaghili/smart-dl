@@ -1,5 +1,4 @@
 """YouTube extractor — format fetch, quality menu, download, playlists."""
-import re
 from pathlib import Path
 from urllib.parse import urlparse
 
@@ -10,14 +9,12 @@ from rich.prompt import IntPrompt, Prompt
 from rich.rule import Rule
 from rich.table import Table
 
-from smart_dl.core.cookies import get_cookie_browser, handle_bot_detection
+from smart_dl.core.cookies import get_cookie_browser
 from smart_dl.core.installer import has_ffmpeg
 from smart_dl.core.network import show_no_internet_panel
 from smart_dl.core.proxy import get_current_proxy
-from smart_dl.core.retry import diagnose_error, retry_with_backoff
-from smart_dl.settings import DL_SETTINGS
 from smart_dl.ui import console, error, info, print_section, success, warn
-from smart_dl.ui.progress import _progress_ctx, make_progress, stop_event, yt_hook
+from smart_dl.ui.progress import stop_event
 from smart_dl.utils import fmt_dur, fmt_size
 
 try:
@@ -27,66 +24,15 @@ except ImportError:
         return key
 
 
-def get_yt_formats(url):
-    """Fetch YouTube video format information."""
-    from urllib.parse import urlparse
-
-    from smart_dl.ui.progress import reset_no_internet
-    reset_no_internet(urlparse(url).netloc or url)
-    ydl_opts = {"quiet": True, "no_warnings": True, "listformats": False,
-                "noplaylist": True, "logger": _YTLogger()}
-    prx = get_current_proxy()
-    if prx:
-        ydl_opts["proxy"] = prx
-    saved_browser = get_cookie_browser()
-    if saved_browser:
-        ydl_opts["cookiesfrombrowser"] = (saved_browser, None, None, None)
-    else:
-        from smart_dl.core.cookies_file import get_cookies_file
-
-        cookie_file = get_cookies_file()
-        if cookie_file:
-            ydl_opts["cookiefile"] = cookie_file
-    try:
-        with yt_dlp.YoutubeDL(ydl_opts) as ydl:
-            return ydl.extract_info(url, download=False)
-    except Exception as e:
-        err_s = str(e)
-        if "sign in to confirm" in err_s.lower() or "not a bot" in err_s.lower():
-            if handle_bot_detection(url, ydl_opts):
-                try:
-                    with yt_dlp.YoutubeDL(ydl_opts) as ydl:
-                        return ydl.extract_info(url, download=False)
-                except Exception as e2:
-                    error(str(e2)[:200])
-                    return None
-            return None
-        if prx and ("Unable to connect to proxy" in err_s or "10061" in err_s or "ProxyError" in err_s):
-            warn("Proxy unreachable: " + prx)
-            ans = Prompt.ask(
-                "  [bold yellow]Clear proxy and retry without it?[/bold yellow] [dim](y / n)[/dim]",
-                default="y"
-            ).strip().lower()
-            if ans != "n":
-                from smart_dl.core.proxy import clear_proxy
-                clear_proxy()
-                info("Retrying without proxy...")
-                with yt_dlp.YoutubeDL({"quiet": True, "no_warnings": True,
-                                       "listformats": False, "noplaylist": True}) as ydl:
-                    return ydl.extract_info(url, download=False)
-        _net_kws = [
-            "getaddrinfo failed", "name or service not known",
-            "failed to resolve", "network is unreachable",
-            "no route to host", "errno 11001", "transporterror",
-        ]
-        if any(x in err_s.lower() for x in _net_kws):
-            _host = urlparse(url).netloc or url
-            show_no_internet_panel(host=_host)
-            return None
-        if "unsupported url" in err_s.lower():
-            error("Unsupported URL \u2014 yt-dlp has no extractor for: " + urlparse(url).netloc)
-            return None
-        raise
+from smart_dl.core.engine import (
+    YTLogger as _YTLogger,
+)
+from smart_dl.core.engine import (
+    download_single as download_yt,
+)
+from smart_dl.core.engine import (
+    get_media_formats as get_yt_formats,
+)
 
 
 def show_yt_info(info_dict):
@@ -414,154 +360,6 @@ def handle_playlist(
         return True
 
 
-def download_yt(url, out_folder, fmt, is_audio=False) -> bool:
-    """Download a video/audio stream with retry and history recording.
-
-    Parameters
-    ----------
-    url : str
-        Source URL.
-    out_folder : pathlib.Path
-        Destination directory.
-    fmt : str
-        yt-dlp format selector.
-    is_audio : bool, optional
-        Extract audio only (MP3 192k).
-
-    Returns
-    -------
-    bool
-        ``True`` only when the download completed successfully.
-    """
-    from pathlib import Path
-
-    from smart_dl.core.recorder import record_download
-    from smart_dl.core.retry import RetryGaveUp
-
-    stop_event.clear()
-    prx = get_current_proxy()
-    maxr = DL_SETTINGS["max_retries"]
-    frags = DL_SETTINGS["fragments"]
-    retry_label = "infinite" if maxr >= 999 else str(maxr)
-    print_section("Downloading", "⬇")
-    info(
-        "Resume enabled  ·  "
-        + retry_label
-        + " retr"
-        + ("y" if maxr == 1 else "ies")
-        + "  ·  "
-        + str(frags)
-        + "-thread fragments"
-    )
-
-    opts = {
-        "format": fmt,
-        "outtmpl": str(out_folder / "%(title)s [%(format_id)s].%(ext)s"),
-        "continuedl": True,
-        "retries": min(maxr, 3) if maxr < 999 else 3,
-        "fragment_retries": min(maxr, 3) if maxr < 999 else 3,
-        "skip_unavailable_fragments": False,
-        "concurrent_fragment_downloads": frags,
-        "socket_timeout": 30,
-        "http_chunk_size": 10 * 1024 * 1024,
-        "logger": _YTLogger(),
-        "progress_hooks": [yt_hook],
-        "merge_output_format": "mp4" if (not is_audio and "+" in fmt) else None,
-        "quiet": True,
-        "no_progress": True,
-        "file_access_retries": 10,
-        "extractor_retries": 10,
-        "postprocessors": (
-            [
-                {
-                    "key": "FFmpegExtractAudio",
-                    "preferredcodec": "mp3",
-                    "preferredquality": "192",
-                }
-            ]
-            if is_audio
-            else []
-        ),
-    }
-    if prx:
-        opts["proxy"] = prx
-    saved_browser = get_cookie_browser()
-    if saved_browser:
-        opts["cookiesfrombrowser"] = (saved_browser, None, None, None)
-
-    def _do_download() -> None:
-        with yt_dlp.YoutubeDL(opts) as ydl:
-            ydl.download([url])
-
-    def _attempt_download() -> bool:
-        try:
-            retry_with_backoff(_do_download, max_retries=maxr)
-            return True
-        except KeyboardInterrupt:
-            warn("Stopped by user.")
-            return False
-        except RetryGaveUp as give_up:
-            if stop_event.is_set():
-                return False
-            error(str(give_up)[:200])
-            if give_up.reason == "dns":
-                show_no_internet_panel(host=urlparse(url).netloc or url)
-            return False
-        except Exception as exc:
-            if stop_event.is_set():
-                return False
-            err_s = str(exc)
-            prx2 = get_current_proxy()
-            if prx2 and ("Unable to connect to proxy" in err_s or "10061" in err_s):
-                warn("Proxy unreachable: " + prx2)
-                ans = Prompt.ask(
-                    "  [bold yellow]Clear proxy and retry?[/bold yellow] [dim](y / n)[/dim]",
-                    default="y",
-                ).strip().lower()
-                if ans != "n":
-                    from smart_dl.core.proxy import clear_proxy
-
-                    clear_proxy()
-                    opts.pop("proxy", None)
-                    try:
-                        retry_with_backoff(_do_download, max_retries=maxr)
-                        return True
-                    except Exception as exc2:
-                        error(str(exc2)[:200])
-                        hint = diagnose_error(exc2)
-                        if hint:
-                            info(hint)
-                        return False
-                return False
-            error(err_s[:200])
-            hint = diagnose_error(exc)
-            if hint:
-                info(hint)
-            return False
-
-    with make_progress() as prog:
-        _progress_ctx["last"] = 0
-        _progress_ctx["task"] = prog.add_task("[cyan]Downloading...[/cyan]", total=None)
-        _progress_ctx["obj"] = prog
-        try:
-            ok = _attempt_download()
-        finally:
-            _progress_ctx["task"] = None
-            _progress_ctx["obj"] = None
-
-    out_path = _progress_ctx.pop("outfile", None)
-    record_download(
-        url,
-        success=ok,
-        title=Path(str(out_path)).name if out_path else "",
-        file_path=Path(str(out_path)) if out_path else None,
-        format_str=fmt,
-        is_audio=is_audio,
-        error="" if ok else "download failed",
-    )
-    if ok:
-        success("Download complete!  →  " + str(out_folder))
-    return ok
 
 
 def download_thumbnail(url, out_folder, info_dict=None):
@@ -592,8 +390,6 @@ def download_thumbnail(url, out_folder, info_dict=None):
         error("No thumbnail URL found.")
         return
 
-    import requests
-
     from smart_dl.utils import safe_filename
     fname = safe_filename(title) + ".jpg"
     fpath = out_folder / fname
@@ -615,44 +411,3 @@ def download_thumbnail(url, out_folder, info_dict=None):
         success("Thumbnail saved: " + str(fpath))
     except Exception as e:
         error("Failed to download thumbnail: " + str(e)[:100])
-
-
-class _YTLogger:
-    """yt-dlp logger that filters noise and shows clean messages."""
-    def debug(self, msg): pass
-    def info(self, msg): pass
-    def warning(self, msg):
-        from smart_dl.core.retry import DNS_KEYWORDS, RESET_KEYWORDS, SUPPRESS_WARNINGS
-        if any(s in msg.lower() for s in SUPPRESS_WARNINGS): return
-        _ml = msg.lower()
-        if any(x in _ml for x in DNS_KEYWORDS):
-            if "giving up" in _ml:
-                show_no_internet_panel(host="www.youtube.com")
-                return
-            m = re.search(r'[Rr]etrying.*?\((\d+)/(\d+)\)', msg)
-            if m:
-                warn("DNS lookup failed \u2014 retrying ("
-                     + m.group(1) + "/" + m.group(2) + ")...")
-            else:
-                warn("DNS lookup failed \u2014 retrying...")
-            return
-        if any(x in _ml for x in RESET_KEYWORDS):
-            m = re.search(r'[Rr]etrying.*?\((\d+)/(\d+)\)', msg)
-            if m:
-                warn("Connection reset by server \u2014 retrying ("
-                     + m.group(1) + "/" + m.group(2) + ")...")
-                if m.group(1) == "3":
-                    info("Server keeps dropping the connection \u2014 likely network filtering.")
-                    info("Consider setting a proxy: press [bold cyan]P[/bold cyan] at the URL prompt.")
-            else:
-                warn("Connection reset by server \u2014 retrying...")
-            return
-        warn(msg)
-    def error(self, msg):
-        from smart_dl.core.retry import DNS_KEYWORDS
-        from smart_dl.ui.progress import stop_event
-        if not stop_event.is_set():
-            _ml = msg.lower()
-            if any(x in _ml for x in DNS_KEYWORDS):
-                return
-            error(msg)

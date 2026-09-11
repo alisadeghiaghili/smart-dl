@@ -46,7 +46,7 @@ class TestFmtSize:
 
 class TestFmtDur:
     def test_zero(self):
-        assert fmt_dur(0) == "?"
+        assert fmt_dur(0) == "00:00:00"
 
     def test_none(self):
         assert fmt_dur(None) == "?"

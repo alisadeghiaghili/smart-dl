@@ -9,6 +9,7 @@ from urllib.parse import urlparse
 from smart_dl.core.net_utils import host_matches, url_host
 
 __all__ = [
+    "best_thumbnail",
     "fmt_dur",
     "fmt_size",
     "is_aparat_url",
@@ -269,3 +270,13 @@ def quality_to_format(quality: str) -> str:
     if token.isdigit():
         return f"bestvideo[height<={int(token)}]+bestaudio/best"
     return _QUALITY_PRESETS["best"]
+
+
+def best_thumbnail(thumbs: list[dict]) -> dict | None:
+    """Select the thumbnail with the largest dimensions, handling None safely."""
+    if not thumbs:
+        return None
+    return max(
+        thumbs,
+        key=lambda t: (t.get("width") or 0) * (t.get("height") or 0),
+    )

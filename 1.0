@@ -1,5 +1,0 @@
-Defaulting to user installation because normal site-packages is not writeable
-Requirement already satisfied: mypy in c:\programdata\anaconda3\lib\site-packages (1.17.1)
-Requirement already satisfied: typing_extensions>=4.6.0 in c:\programdata\anaconda3\lib\site-packages (from mypy) (4.15.0)
-Requirement already satisfied: mypy_extensions>=1.0.0 in c:\programdata\anaconda3\lib\site-packages (from mypy) (1.0.0)
-Requirement already satisfied: pathspec>=0.9.0 in c:\programdata\anaconda3\lib\site-packages (from mypy) (0.12.1)

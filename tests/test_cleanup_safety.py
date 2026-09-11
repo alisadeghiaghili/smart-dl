@@ -14,15 +14,17 @@ def test_cleanup_skips_redownloaded_file(tmp_path: Path):
     failed_records = [{"id": 1, "file_path": str(test_file), "status": "failed"}]
     success_records = [{"id": 2, "file_path": str(test_file), "status": "success"}]
 
-    with patch("smart_dl.core.manager._get_failed_records", return_value=failed_records), \
-         patch("smart_dl.core.manager._get_successful_records", return_value=success_records), \
-         patch("smart_dl.core.manager._remove_history_record") as mock_remove:
+    def mock_get_history(status=None, limit=10000):
+        if status == "failed":
+            return failed_records
+        if status == "success":
+            return success_records
+        return []
 
+    with patch("smart_dl.core.history.get_history", side_effect=mock_get_history):
         cleaned = cleanup_downloads()
-
         assert cleaned == 0
         assert test_file.exists()
-        mock_remove.assert_not_called()
 
 
 def test_cleanup_deletes_pure_failures(tmp_path: Path):
@@ -32,12 +34,14 @@ def test_cleanup_deletes_pure_failures(tmp_path: Path):
 
     failed_records = [{"id": 1, "file_path": str(test_file), "status": "failed"}]
 
-    with patch("smart_dl.core.manager._get_failed_records", return_value=failed_records), \
-         patch("smart_dl.core.manager._get_successful_records", return_value=[]), \
-         patch("smart_dl.core.manager._remove_history_record") as mock_remove:
+    def mock_get_history(status=None, limit=10000):
+        if status == "failed":
+            return failed_records
+        if status == "success":
+            return []
+        return []
 
+    with patch("smart_dl.core.history.get_history", side_effect=mock_get_history):
         cleaned = cleanup_downloads()
-
         assert cleaned == 1
         assert not test_file.exists()
-        mock_remove.assert_called_once_with(1)

@@ -92,10 +92,10 @@ class TestUtilsQualityAndHosts:
     def test_quality_presets(self) -> None:
         from smart_dl.utils import quality_to_format
 
-        assert quality_to_format("4k") == "bestvideo[height<=2160]+bestaudio/best"
-        assert quality_to_format("8k") == "bestvideo[height<=4320]+bestaudio/best"
+        assert quality_to_format("4k") == "bestvideo[height<=2160]+bestaudio/best[height<=2160]"
+        assert quality_to_format("8k") == "bestvideo[height<=4320]+bestaudio/best[height<=4320]"
         assert quality_to_format("worst") == "worstvideo+worstaudio/worst"
-        assert quality_to_format("1080") == "bestvideo[height<=1080]+bestaudio/best"
+        assert quality_to_format("1080") == "bestvideo[height<=1080]+bestaudio/best[height<=1080]"
         assert quality_to_format("nope") == "bestvideo+bestaudio/best"
 
     def test_safe_filename_reserved(self) -> None:

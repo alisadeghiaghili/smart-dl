@@ -17,7 +17,14 @@ from smart_dl.core.history import init_db as init_history_db
 from smart_dl.core.proxy import apply_proxy, clear_proxy, get_current_proxy
 from smart_dl.core.queue import clear_queue, get_queue, get_queue_stats
 from smart_dl.core.queue import init_db as init_queue_db
-from smart_dl.utils import fmt_dur, fmt_size, is_aparat_url, is_playlist_url, is_youtube_url
+from smart_dl.utils import (
+    best_thumbnail,
+    fmt_dur,
+    fmt_size,
+    is_aparat_url,
+    is_playlist_url,
+    is_youtube_url,
+)
 
 # Page config
 st.set_page_config(
@@ -26,6 +33,9 @@ st.set_page_config(
     layout="wide",
     initial_sidebar_state="expanded",
 )
+
+_best_thumbnail = best_thumbnail
+
 
 # Init databases
 init_queue_db()
@@ -190,11 +200,9 @@ if "info" in st.session_state:
         # Thumbnail
         thumbs = info.get("thumbnails", [])
         if thumbs:
-            best = max(
-                thumbs,
-                key=lambda t: (t.get("width") or 0) * (t.get("height") or 0),
-            )
-            st.image(best.get("url", ""), use_container_width=True)
+            best = _best_thumbnail(thumbs)
+            if best and best.get("url"):
+                st.image(best["url"], use_container_width=True)
 
     st.markdown("---")
 

@@ -42,3 +42,7 @@ Thumbs.db
 .pytest_cache/
 .coverage
 htmlcov/
+
+# Build artifacts & misdirected version files
+/[0-9]*.0
+/[0-9]*.[0-9]*

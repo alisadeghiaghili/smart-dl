@@ -415,150 +415,180 @@ def run_cli():
         print(f"Error: cannot create output directory {out_folder}: {exc}", file=sys.stderr)
         sys.exit(1)
 
-    # ─── Process URLs ─────────────────────────────────────────────────────────
+    _process_urls(urls, args, out_folder)
+
+
+def _download_single_url(url: str, args, out_folder: Path) -> bool:
+    """Dispatch and download a single URL through appropriate extractor."""
+    from smart_dl.core.downloader import download_with_features
+    from smart_dl.extractors.gallery import download_gallery, is_gallery_url
     from smart_dl.extractors.podcast_meta import is_podcast_platform_url
-    from smart_dl.ui import error, info, success, warn
-    from smart_dl.utils import is_aparat_url, is_playlist_url, is_podcast_url, is_youtube_url
+    from smart_dl.extractors.subtitles import (
+        download_subtitles_for_video,
+        list_subtitles,
+    )
+    from smart_dl.extractors.torrent import download_torrent
+    from smart_dl.ui import info
+    from smart_dl.utils import (
+        is_aparat_url,
+        is_playlist_url,
+        is_podcast_url,
+        is_youtube_url,
+        quality_to_format,
+    )
+
+    # ── List subtitles ────────────────────────────────────────────────
+    if args.list_subs:
+        title, subs, auto_subs = list_subtitles(url)
+        if title:
+            print(f"\nSubtitles for: {title}")
+            if subs:
+                print("Manual subtitles:")
+                for lang in sorted(subs.keys()):
+                    print(f"  - {lang}")
+            if auto_subs:
+                print("Auto-generated subtitles:")
+                for lang in sorted(auto_subs.keys()):
+                    print(f"  - {lang}")
+        return True
+
+    # ── Subtitles download ────────────────────────────────────────────
+    if args.subtitles:
+        if args.subtitles.lower() == "all":
+            download_subtitles_for_video(url, out_folder, langs=None, embed=args.embed_subs)
+        else:
+            langs = [l.strip() for l in args.subtitles.split(",")]
+            download_subtitles_for_video(url, out_folder, langs=langs, embed=args.embed_subs)
+        return True
+
+    # ── Thumbnail ─────────────────────────────────────────────────────
+    if args.thumbnail:
+        from smart_dl.extractors.youtube import download_thumbnail
+
+        download_thumbnail(url, out_folder)
+        return True
+
+    # ── Torrent ───────────────────────────────────────────────────────
+    if is_magnet_link(url) or is_torrent_file(url):
+        download_torrent(url, out_folder)
+        return True
+
+    # ── Gallery ───────────────────────────────────────────────────────
+    if args.gallery or is_gallery_url(url):
+        download_gallery(url, out_folder)
+        return True
+
+    # ── Playlists ─────────────────────────────────────────────────────
+    if is_playlist_url(url):
+        if is_aparat_url(url):
+            from smart_dl.extractors.aparat import handle_aparat_playlist
+
+            return bool(handle_aparat_playlist(url, out_folder))
+        from smart_dl.extractors.youtube import handle_playlist
+
+        return bool(
+            handle_playlist(
+                url,
+                out_folder,
+                audio_only=args.audio_only,
+                quality=args.quality,
+                audio_format=args.audio_format,
+            )
+        )
+
+    # ── Aparat ────────────────────────────────────────────────────────
+    if is_aparat_url(url):
+        from smart_dl.extractors.aparat import download_aparat
+
+        return bool(download_aparat(url, out_folder))
+
+    # ── YouTube ───────────────────────────────────────────────────────
+    if is_youtube_url(url):
+        fmt = quality_to_format(args.quality)
+        is_audio = args.audio_only
+        return download_with_features(
+            url,
+            out_folder,
+            fmt=fmt,
+            is_audio=is_audio,
+            clip=args.clip,
+            sponsorblock=args.sponsorblock,
+            audio_format=args.audio_format,
+            audio_quality=args.audio_quality,
+            output_format=args.format,
+            embed_metadata=args.embed_metadata,
+            embed_thumbnail=args.embed_thumbnail,
+            embed_subs=args.embed_subs,
+            geo_bypass=args.geo_bypass,
+            impersonate=args.impersonate,
+            output_template=args.output_template,
+            quiet=args.quiet,
+        )
+
+    # ── Podcasts ──────────────────────────────────────────────────────
+    if is_podcast_url(url) or is_podcast_platform_url(url):
+        from smart_dl.extractors.podcast import handle_podcast
+
+        return bool(
+            handle_podcast(
+                url,
+                out_folder,
+                max_episodes=args.max_episodes,
+                download_all=args.all_episodes,
+            )
+        )
+
+    # ── Education (Maktabkhooneh / Faradars / Coursera) ───────────────
+    from smart_dl.extractors.education import (
+        download_education_course,
+        is_education_url,
+    )
+
+    if is_education_url(url):
+        max_lessons = resolve_education_max_lessons(
+            all_lessons=args.all,
+            max_lessons=args.max_lessons,
+        )
+        return download_education_course(url, out_folder, max_lessons=max_lessons)
+
+    # ── Fallback ──────────────────────────────────────────────────────
+    from smart_dl.extractors.general import detect_platform
+
+    platform = detect_platform(url)
+    if platform:
+        info(f"Detected: {platform}")
+    fmt = quality_to_format(args.quality)
+    is_audio = args.audio_only
+    return download_with_features(
+        url,
+        out_folder,
+        fmt=fmt,
+        is_audio=is_audio,
+        clip=args.clip,
+        sponsorblock=args.sponsorblock,
+        audio_format=args.audio_format,
+        audio_quality=args.audio_quality,
+        output_format=args.format,
+        embed_metadata=args.embed_metadata,
+        embed_thumbnail=args.embed_thumbnail,
+        embed_subs=args.embed_subs,
+        geo_bypass=args.geo_bypass,
+        impersonate=args.impersonate,
+        output_template=args.output_template,
+        quiet=args.quiet,
+    )
+
+
+def _process_urls(urls: list[str], args, out_folder: Path) -> None:
+    """Process all URLs passed to CLI."""
+    from smart_dl.ui import error, success, warn
 
     failures = 0
     for url in urls:
         try:
-            # ── List subtitles ────────────────────────────────────────────────
-            if args.list_subs:
-                from smart_dl.extractors.subtitles import list_subtitles
-                title, subs, auto_subs = list_subtitles(url)
-                if title:
-                    print(f"\nSubtitles for: {title}")
-                    if subs:
-                        print("Manual subtitles:")
-                        for lang in sorted(subs.keys()):
-                            print(f"  - {lang}")
-                    if auto_subs:
-                        print("Auto-generated subtitles:")
-                        for lang in sorted(auto_subs.keys()):
-                            print(f"  - {lang}")
-                continue
-
-            # ── Subtitles download ────────────────────────────────────────────
-            if args.subtitles:
-                from smart_dl.extractors.subtitles import download_subtitles_for_video
-                if args.subtitles.lower() == "all":
-                    download_subtitles_for_video(url, out_folder, langs=None, embed=args.embed_subs)
-                else:
-                    langs = [l.strip() for l in args.subtitles.split(",")]
-                    download_subtitles_for_video(url, out_folder, langs=langs, embed=args.embed_subs)
-                continue
-
-            # ── Thumbnail ─────────────────────────────────────────────────────
-            if args.thumbnail:
-                from smart_dl.extractors.youtube import download_thumbnail
-
-                download_thumbnail(url, out_folder)
-                continue
-
-            # ── Torrent ───────────────────────────────────────────────────────
-            if is_magnet_link(url) or is_torrent_file(url):
-                from smart_dl.extractors.torrent import download_torrent
-                download_torrent(url, out_folder)
-                continue
-
-            # ── Gallery ───────────────────────────────────────────────────────
-            from smart_dl.extractors.gallery import is_gallery_url
-            if args.gallery or is_gallery_url(url):
-                from smart_dl.extractors.gallery import download_gallery
-                download_gallery(url, out_folder)
-                continue
-
-            # ── Playlists ─────────────────────────────────────────────────────
-            if is_playlist_url(url):
-                if is_aparat_url(url):
-                    from smart_dl.extractors.aparat import handle_aparat_playlist
-                    failures += count_failure(handle_aparat_playlist(url, out_folder))
-                else:
-                    from smart_dl.extractors.youtube import handle_playlist
-                    failures += count_failure(handle_playlist(
-                        url,
-                        out_folder,
-                        audio_only=args.audio_only,
-                        quality=args.quality,
-                        audio_format=args.audio_format,
-                    ))
-
-            # ── Aparat ────────────────────────────────────────────────────────
-            elif is_aparat_url(url):
-                from smart_dl.extractors.aparat import download_aparat
-                failures += count_failure(download_aparat(url, out_folder))
-
-            # ── YouTube ───────────────────────────────────────────────────────
-            elif is_youtube_url(url):
-                from smart_dl.core.downloader import download_with_features
-                from smart_dl.utils import quality_to_format
-
-                fmt = quality_to_format(args.quality)
-                is_audio = args.audio_only
-                ok = download_with_features(
-                    url, out_folder, fmt=fmt, is_audio=is_audio,
-                    clip=args.clip, sponsorblock=args.sponsorblock,
-                    audio_format=args.audio_format, audio_quality=args.audio_quality,
-                    output_format=args.format, embed_metadata=args.embed_metadata,
-                    embed_thumbnail=args.embed_thumbnail, embed_subs=args.embed_subs,
-                    geo_bypass=args.geo_bypass, impersonate=args.impersonate,
-                    output_template=args.output_template, quiet=args.quiet,
-                )
-                if not ok:
-                    failures += 1
-
-            # ── Podcasts ──────────────────────────────────────────────────────
-            elif is_podcast_url(url) or is_podcast_platform_url(url):
-                from smart_dl.extractors.podcast import handle_podcast
-                failures += count_failure(
-                    handle_podcast(
-                        url,
-                        out_folder,
-                        max_episodes=args.max_episodes,
-                        download_all=args.all_episodes,
-                    )
-                )
-
-            # ── Education (Maktabkhooneh / Faradars / Coursera) ───────────────
-            else:
-                from smart_dl.extractors.education import (
-                    download_education_course,
-                    is_education_url,
-                )
-
-                if is_education_url(url):
-                    max_lessons = resolve_education_max_lessons(
-                        all_lessons=args.all,
-                        max_lessons=args.max_lessons,
-                    )
-                    ok = download_education_course(
-                        url, out_folder, max_lessons=max_lessons
-                    )
-                    if not ok:
-                        failures += 1
-                else:
-                    from smart_dl.extractors.general import detect_platform
-                    platform = detect_platform(url)
-                    if platform:
-                        info(f"Detected: {platform}")
-                    from smart_dl.core.downloader import download_with_features
-                    from smart_dl.utils import quality_to_format
-
-                    fmt = quality_to_format(args.quality)
-                    is_audio = args.audio_only
-                    ok = download_with_features(
-                        url, out_folder, fmt=fmt, is_audio=is_audio,
-                        clip=args.clip, sponsorblock=args.sponsorblock,
-                        audio_format=args.audio_format, audio_quality=args.audio_quality,
-                        output_format=args.format, embed_metadata=args.embed_metadata,
-                        embed_thumbnail=args.embed_thumbnail, embed_subs=args.embed_subs,
-                        geo_bypass=args.geo_bypass, impersonate=args.impersonate,
-                        output_template=args.output_template, quiet=args.quiet,
-                    )
-                    if not ok:
-                        failures += 1
-
+            ok = _download_single_url(url, args, out_folder)
+            if not ok:
+                failures += 1
         except KeyboardInterrupt:
             warn("Interrupted.")
             break

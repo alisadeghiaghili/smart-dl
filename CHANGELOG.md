@@ -3,6 +3,20 @@
 All notable changes to SmartDL are documented here.
 Format follows [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
+## [3.17.0] - 2026-09-11
+
+### Added
+- Python 3.13 and Python 3.14 support added to CI matrix and classifiers
+- `smart_dl.core.engine` module consolidating yt-dlp instance creation, format extraction, and single-item downloads
+- Dedicated package structure for education platform extractors (`smart_dl.extractors.education/` with `maktabkhooneh`, `faradars`, `coursera`, and `common`)
+
+### Fixed
+- CI / Test suite: extracted `best_thumbnail` from `smart_dl.web` into `smart_dl.utils` to prevent missing `streamlit` dependency from breaking test runs on bare environments
+- Coursera syllabus: fixed `parse_course_outline` to correctly resolve public syllabus modules when HTML contains no lecture anchor tags
+- Removed stray version files accidentally generated at repository root and added `.gitignore` protection
+
+---
+
 ## [3.16.0] - 2026-09-11
 
 ### Fixed

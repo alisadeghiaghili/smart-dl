@@ -1,11 +1,11 @@
-# SmartDL v3.14.0
+# SmartDL v3.17.0
 
 > **bad connection? hold my retry loop.**
 
 A resilient, multi-threaded media downloader built for unstable networks.
 Designed for users behind weak connections and VPNs — SmartDL never gives up.
 
-[![Python](https://img.shields.io/badge/python-3.8%2B-blue?style=flat-square)](https://www.python.org/)
+[![Python](https://img.shields.io/badge/python-3.8%20|%203.9%20|%203.11%20|%203.12%20|%203.13%20|%203.14-blue?style=flat-square)](https://www.python.org/)
 [![License: Apache-2.0](https://img.shields.io/badge/license-Apache--2.0-blue?style=flat-square)](LICENSE)
 [![Buy Me a Coffee](https://img.shields.io/badge/support-Buy%20Me%20a%20Coffee-yellow?style=flat-square&logo=buy-me-a-coffee)](https://buymeacoffee.com/alisadeghil)
 [![GitHub Downloads](https://img.shields.io/github/downloads/alisadeghiaghili/smart-dl/total?style=flat-square&label=downloads&color=blue)](https://github.com/alisadeghiaghili/smart-dl/releases)

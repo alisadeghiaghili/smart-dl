@@ -106,13 +106,13 @@ class TestPeekRegistryProxy:
             assert _peek_registry_proxy() == "http://127.0.0.1:8080"
 
     def test_simple_host_port_with_socks_port_gets_socks5(self):
-        """If the simple form has a known SOCKS port, prefix socks5://."""
+        """If the simple form has a known SOCKS port, prefix socks5h://."""
         from smart_dl.core.proxy import _peek_registry_proxy
 
         with patch("winreg.OpenKey"), patch(
             "winreg.QueryValueEx", side_effect=[(1, ""), ("127.0.0.1:10808", "")]
         ):
-            assert _peek_registry_proxy() == "socks5://127.0.0.1:10808"
+            assert _peek_registry_proxy() == "socks5h://127.0.0.1:10808"
 
     def test_https_key_wins_in_protocol_specific(self):
         from smart_dl.core.proxy import _peek_registry_proxy
@@ -134,18 +134,18 @@ class TestPeekRegistryProxy:
                 ("socks=127.0.0.1:10808;http=127.0.0.1:8080;https=127.0.0.1:8443", ""),
             ],
         ):
-            assert _peek_registry_proxy() == "socks5://127.0.0.1:10808"
+            assert _peek_registry_proxy() == "socks5h://127.0.0.1:10808"
 
     def test_socks_only_with_no_http_returns_socks5(self):
         """The exact bug case from the report: only socks= set, no http/https.
         Old code returned 'http://socks=127.0.0.1:10808' (broken).
-        New code returns 'socks5://127.0.0.1:10808'."""
+        New code returns 'socks5h://127.0.0.1:10808'."""
         from smart_dl.core.proxy import _peek_registry_proxy
 
         with patch("winreg.OpenKey"), patch(
             "winreg.QueryValueEx", side_effect=[(1, ""), ("socks=127.0.0.1:10808", "")]
         ):
-            assert _peek_registry_proxy() == "socks5://127.0.0.1:10808"
+            assert _peek_registry_proxy() == "socks5h://127.0.0.1:10808"
 
     def test_handles_missing_registry_key(self):
         from smart_dl.core.proxy import _peek_registry_proxy
