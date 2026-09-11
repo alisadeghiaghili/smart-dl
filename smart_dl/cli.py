@@ -63,8 +63,6 @@ def build_parser():
                         help="Audio format (default: mp3)")
     parser.add_argument("--audio-quality", type=str, default="192",
                         help="Audio bitrate in kbps (default: 192)")
-    parser.add_argument("--dubbed-langs", type=str, default=None,
-                        help="Download dubbed audio tracks (e.g., en,fa,ar)")
 
     # Subtitles
     parser.add_argument("--subtitles", type=str, default=None,
@@ -456,6 +454,7 @@ def run_cli():
                 from smart_dl.extractors.youtube import download_thumbnail
 
                 download_thumbnail(url, out_folder)
+                continue
 
             # ── Torrent ───────────────────────────────────────────────────────
             if is_magnet_link(url) or is_torrent_file(url):
@@ -477,7 +476,13 @@ def run_cli():
                     failures += count_failure(handle_aparat_playlist(url, out_folder))
                 else:
                     from smart_dl.extractors.youtube import handle_playlist
-                    failures += count_failure(handle_playlist(url, out_folder))
+                    failures += count_failure(handle_playlist(
+                        url,
+                        out_folder,
+                        audio_only=args.audio_only,
+                        quality=args.quality,
+                        audio_format=args.audio_format,
+                    ))
 
             # ── Aparat ────────────────────────────────────────────────────────
             elif is_aparat_url(url):
@@ -548,7 +553,8 @@ def run_cli():
                         audio_format=args.audio_format, audio_quality=args.audio_quality,
                         output_format=args.format, embed_metadata=args.embed_metadata,
                         embed_thumbnail=args.embed_thumbnail, embed_subs=args.embed_subs,
-                        quiet=args.quiet,
+                        geo_bypass=args.geo_bypass, impersonate=args.impersonate,
+                        output_template=args.output_template, quiet=args.quiet,
                     )
                     if not ok:
                         failures += 1
@@ -626,10 +632,14 @@ def queue_download_item(item, out_folder) -> bool:
     """
     from pathlib import Path
 
-    from smart_dl.extractors.youtube import download_yt
     from smart_dl.ui import info
     from smart_dl.ui.progress import stop_event
-    from smart_dl.utils import quality_to_format
+    from smart_dl.utils import (
+        is_aparat_url,
+        is_education_url,
+        is_podcast_url,
+        quality_to_format,
+    )
 
     url = item["url"]
     info(f"Queue #{item.get('id')}: {url[:80]}")
@@ -638,7 +648,24 @@ def queue_download_item(item, out_folder) -> bool:
     is_audio = bool(item.get("is_audio"))
     if fmt in ("best", "", None):
         fmt = quality_to_format("best")
-    return download_yt(url, Path(out_folder), fmt, is_audio)
+
+    out = Path(out_folder)
+    if is_education_url(url):
+        from smart_dl.extractors.education import download_education_course
+
+        return download_education_course(url, out, max_lessons=None)
+    if is_podcast_url(url):
+        from smart_dl.extractors.podcast import download_podcast_url
+
+        return download_podcast_url(url, out)
+    if is_aparat_url(url):
+        from smart_dl.extractors.aparat import download_aparat
+
+        return download_aparat(url, out)
+
+    from smart_dl.extractors.youtube import download_yt
+
+    return download_yt(url, out, fmt, is_audio)
 
 
 def _tool_version(tool: str) -> str:

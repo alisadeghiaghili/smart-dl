@@ -1,5 +1,6 @@
 """YouTube extractor — format fetch, quality menu, download, playlists."""
 import re
+from pathlib import Path
 from urllib.parse import urlparse
 
 import yt_dlp
@@ -216,19 +217,43 @@ def yt_quality_menu(info_dict) -> tuple:
         return "bestvideo+bestaudio/best", False
 
 
-def handle_playlist(url, out_folder) -> bool:
+def handle_playlist(
+    url: str,
+    out_folder: Path,
+    audio_only: bool = False,
+    quality: str = "best",
+    audio_format: str = "mp3",
+) -> bool:
     """Handle YouTube playlist download.
+
+    Parameters
+    ----------
+    url : str
+        Playlist URL.
+    out_folder : pathlib.Path
+        Output directory.
+    audio_only : bool, optional
+        Whether to extract audio only for all videos.
+    quality : str, optional
+        Quality selector.
+    audio_format : str, optional
+        Audio codec format.
 
     Returns
     -------
     bool
         ``True`` when at least one video downloaded and none remain failed.
     """
+    from smart_dl.utils import quality_to_format
+
     print_section("Analyzing playlist", "\U0001f4cb")
     prx = get_current_proxy()
+    fmt = quality_to_format(quality)
     ydl_opts = {
-        "quiet": True, "no_warnings": True,
-        "extract_flat": True, "noplaylist": False,
+        "quiet": True,
+        "no_warnings": True,
+        "extract_flat": True,
+        "noplaylist": False,
         "logger": _YTLogger(),
     }
     if prx:
@@ -316,7 +341,7 @@ def handle_playlist(url, out_folder) -> bool:
                 skipped.append((i, vid_title, "Skipped by user"))
                 continue
         else:
-            fmt, is_audio = shared_fmt, shared_is_audio
+            fmt, is_audio = (fmt if not audio_only else quality_to_format(quality)), (is_audio or audio_only)
 
         try:
             if not download_yt(vid_url, out_folder, fmt, is_audio):

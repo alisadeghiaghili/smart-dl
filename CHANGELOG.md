@@ -3,6 +3,20 @@
 All notable changes to SmartDL are documented here.
 Format follows [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
+## [3.15.0] - 2026-09-11
+
+### Added
+- Complete quality presets for `worst`, `4k`, `8k`, `2160`, `1440`, `1080`, `720`, `480`, `360` in `utils.quality_to_format()`
+
+### Fixed
+- Queue: `queue_download_item` now routes items through specialized extractors (education, podcast, Aparat) instead of forcing all through `download_yt`
+- Playlists: pass `audio_only`, `quality`, and `audio_format` CLI options to `handle_playlist()`
+- CLI: pass `geo_bypass`, `impersonate`, and `output_template` flags in the generic fallback download path
+- CLI: fix `--thumbnail` workflow to download thumbnail and skip video download
+- CLI: remove dead `--dubbed-langs` option from parser
+
+---
+
 ## [3.14.2] - 2026-09-11
 
 ### Fixed

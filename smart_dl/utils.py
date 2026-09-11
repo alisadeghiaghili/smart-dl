@@ -26,8 +26,14 @@ _APARAT_HOSTS = ("aparat.com",)
 _QUALITY_PRESETS = {
     "best": "bestvideo+bestaudio/best",
     "worst": "worstvideo+worstaudio/worst",
-    "4k": "bestvideo[height<=2160]+bestaudio/best",
-    "8k": "bestvideo[height<=4320]+bestaudio/best",
+    "4k": "bestvideo[height<=2160]+bestaudio/best[height<=2160]",
+    "8k": "bestvideo[height<=4320]+bestaudio/best[height<=4320]",
+    "2160": "bestvideo[height<=2160]+bestaudio/best[height<=2160]",
+    "1440": "bestvideo[height<=1440]+bestaudio/best[height<=1440]",
+    "1080": "bestvideo[height<=1080]+bestaudio/best[height<=1080]",
+    "720": "bestvideo[height<=720]+bestaudio/best[height<=720]",
+    "480": "bestvideo[height<=480]+bestaudio/best[height<=480]",
+    "360": "bestvideo[height<=360]+bestaudio/best[height<=360]",
 }
 
 
