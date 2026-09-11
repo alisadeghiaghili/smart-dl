@@ -632,11 +632,11 @@ def queue_download_item(item, out_folder) -> bool:
     """
     from pathlib import Path
 
+    from smart_dl.extractors.education import is_education_url
     from smart_dl.ui import info
     from smart_dl.ui.progress import stop_event
     from smart_dl.utils import (
         is_aparat_url,
-        is_education_url,
         is_podcast_url,
         quality_to_format,
     )
