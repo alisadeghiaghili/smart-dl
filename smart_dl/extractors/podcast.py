@@ -1,4 +1,6 @@
 """Podcast extractor — RSS parser, direct audio, podcast handler."""
+from __future__ import annotations
+
 import re
 import subprocess
 import xml.etree.ElementTree as ET
