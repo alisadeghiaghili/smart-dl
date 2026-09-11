@@ -1,4 +1,4 @@
-# SmartDL v3.17.0
+# SmartDL v3.18.0
 
 > **bad connection? hold my retry loop.**
 
@@ -19,9 +19,9 @@ Designed for users behind weak connections and VPNs — SmartDL never gives up.
 
 ### Core
 - **YouTube** — full format list (all resolutions, all audio tracks), video info panel
-- **Aparat** — native support for Iranian video platform (videos + playlists)
-- **1800+ sites** — TikTok, Instagram, Twitter/X, Reddit, Twitch, Vimeo, SoundCloud, and more
-- **Podcasts** — direct MP3/M4A links, RSS feeds, SoundCloud, and more
+- **Aparat, Maktabkhooneh & Faradars** — native support for Iranian video & education platforms
+- **1800+ sites via yt-dlp** — TikTok, Instagram, Twitter/X, Reddit, Twitch, Vimeo, SoundCloud, and more
+- **Podcasts** — direct MP3/M4A links, RSS feeds, SoundCloud, Castbox, and more
 
 ### Network Resilience
 - **Infinite retry with backoff** — waits and retries on network failure; never fails silently
@@ -130,9 +130,9 @@ On startup:
 # Basic download
 smart-dl "https://youtube.com/watch?v=abc123"
 
-# Quality and format
-smart-dl URL -q best -o ~/Downloads
-smart-dl URL --format mkv
+# Quality and format (presets: worst, 360, 480, 720, 1080, 1440, 4k, 8k, best)
+smart-dl URL -q 1080 -o ~/Downloads
+smart-dl URL -q 4k --format mkv
 
 # Video clipping
 smart-dl URL --clip 00:01:30-00:05:00

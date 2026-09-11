@@ -3,6 +3,19 @@
 All notable changes to SmartDL are documented here.
 Format follows [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
+## [3.18.0] - 2026-09-11
+
+### Added
+- Comprehensive test coverage for CLI smoke invocations (`--version`, `--help`, `--diagnose`, unrecognized flags)
+- Complete Persian (fa) localization keys covering 100% of English strings (164/164 keys aligned)
+- Multi-OS CI testing matrix supporting both `ubuntu-latest` and `windows-latest` across Python 3.9 through 3.14
+
+### Changed
+- Refactored legacy test files (`test_v391_fixes.py` -> `test_queue_noninteractive.py`, `test_v392.py` -> `test_cli_exit_codes.py`)
+- Clarified documentation in README regarding native extractors vs yt-dlp supported sites
+
+---
+
 ## [3.17.0] - 2026-09-11
 
 ### Added

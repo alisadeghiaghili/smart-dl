@@ -42,3 +42,57 @@ def test_queue_download_item_routes_podcast_url():
         res = queue_download_item(item, "/tmp/out")
         assert res is True
         mock_pod.assert_called_once()
+
+
+def test_cli_version_flag(capsys) -> None:
+    """Verify that --version outputs the correct version and exits."""
+    import pytest
+
+    from smart_dl import VERSION
+    from smart_dl.cli import build_parser
+
+    parser = build_parser()
+    with pytest.raises(SystemExit) as exc_info:
+        parser.parse_args(["--version"])
+    assert exc_info.value.code == 0
+    captured = capsys.readouterr()
+    assert f"SmartDL v{VERSION}" in (captured.out + captured.err)
+
+
+def test_cli_help_flag(capsys) -> None:
+    """Verify that --help outputs usage information and exits 0."""
+    import pytest
+
+    from smart_dl.cli import build_parser
+
+    parser = build_parser()
+    with pytest.raises(SystemExit) as exc_info:
+        parser.parse_args(["--help"])
+    assert exc_info.value.code == 0
+    captured = capsys.readouterr()
+    assert "SmartDL" in captured.out
+    assert "--quality" in captured.out
+    assert "--queue" in captured.out
+
+
+def test_cli_unknown_flag(capsys) -> None:
+    """Verify that unknown flag raises SystemExit with non-zero code."""
+    import pytest
+
+    from smart_dl.cli import build_parser
+
+    parser = build_parser()
+    with pytest.raises(SystemExit) as exc_info:
+        parser.parse_args(["--completely-unknown-flag"])
+    assert exc_info.value.code != 0
+    captured = capsys.readouterr()
+    assert "unrecognized arguments" in captured.err
+
+
+def test_cli_diagnose_flag() -> None:
+    """Verify that --diagnose flag sets diagnose attribute."""
+    from smart_dl.cli import build_parser
+
+    parser = build_parser()
+    args = parser.parse_args(["--diagnose"])
+    assert args.diagnose is True
