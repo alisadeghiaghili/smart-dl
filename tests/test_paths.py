@@ -49,6 +49,7 @@ class TestDataDir:
         assert data == tmp_path / "data"
         assert data.is_dir()
 
+    @pytest.mark.skipif(sys.platform != "win32", reason="WindowsPath cannot be instantiated on non-Windows platforms")
     def test_windows_uses_appdata(self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
         monkeypatch.setattr(os, "name", "nt")
         monkeypatch.setenv("APPDATA", str(tmp_path / "AppData"))
