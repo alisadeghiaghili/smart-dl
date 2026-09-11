@@ -3,6 +3,17 @@
 All notable changes to SmartDL are documented here.
 Format follows [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
+## [3.14.2] - 2026-09-11
+
+### Fixed
+- Parallel downloads: set `decode_content=True` on response stream to prevent saving raw compressed HTTP streams
+- Parallel downloads: use thread-isolated `requests.Session` instances to prevent connection pool corruption
+- Cleanup: prevent `cleanup_downloads` from deleting files that were successfully re-downloaded
+- Queue: reset active items to `pending` status upon `KeyboardInterrupt` (Ctrl+C)
+- Web UI: safely handle `None` values for thumbnail width and height in `_best_thumbnail`
+
+---
+
 ## [3.14.1] - 2026-09-11
 
 ### Fixed

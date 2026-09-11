@@ -97,24 +97,30 @@ def export_downloads(output_path: str = "downloads.json"):
     success(f"Exported to {output_path}")
 
 
-def cleanup_downloads(dry_run: bool = False):
-    """Remove failed/incomplete downloads."""
+def cleanup_downloads(dry_run: bool = False) -> int:
+    """Remove failed/incomplete downloads.
+
+    Skips files that were subsequently re-downloaded successfully to prevent data loss.
+    """
     from smart_dl.core.history import get_history
 
     rows = get_history(status="failed", limit=10000)
     if not rows:
         info("No failed downloads to clean up.")
-        return
+        return 0
+
+    success_rows = get_history(status="success", limit=10000)
+    success_paths = {r.get("file_path", "") for r in success_rows if r.get("file_path")}
 
     files_to_remove = []
     for r in rows:
         fp = r.get("file_path", "")
-        if fp and os.path.isfile(fp):
+        if fp and fp not in success_paths and os.path.isfile(fp):
             files_to_remove.append(fp)
 
     if not files_to_remove:
         info("No files to clean up.")
-        return
+        return 0
 
     if dry_run:
         info(f"Would remove {len(files_to_remove)} files:")
@@ -122,7 +128,7 @@ def cleanup_downloads(dry_run: bool = False):
             info(f"  {f}")
         if len(files_to_remove) > 20:
             info(f"  ... and {len(files_to_remove) - 20} more")
-        return
+        return 0
 
     removed = 0
     for f in files_to_remove:
@@ -131,5 +137,6 @@ def cleanup_downloads(dry_run: bool = False):
             removed += 1
         except Exception:
             pass
+    return removed
 
     success(f"Removed {removed}/{len(files_to_remove)} files")

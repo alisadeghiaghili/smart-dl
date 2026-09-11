@@ -325,6 +325,9 @@ def process_queue(
         update_queue_status(item["id"], "active")
         try:
             ok = bool(download_fn(item))
+        except KeyboardInterrupt:
+            update_queue_status(item["id"], "pending")
+            raise
         except Exception as exc:  # noqa: BLE001 — isolate per-item failures
             update_queue_status(item["id"], "failed", error=str(exc)[:200])
             failed += 1

@@ -46,9 +46,10 @@ class DownloadResult(dict):
 def _copy_one(
     url: str,
     dest: Path,
-    cancel: Event,
-    session: requests.Session,
+    cancel: Optional[Event] = None,
+    session: Optional[requests.Session] = None,
     chunk_size: int = 64 * 1024,
+    proxy: Optional[str] = None,
 ) -> DownloadResult:
     """Stream one URL to disk atomically.
 
@@ -58,12 +59,14 @@ def _copy_one(
         Source URL.
     dest : pathlib.Path
         Final destination path.
-    cancel : threading.Event
+    cancel : threading.Event, optional
         Cooperative cancel flag.
-    session : requests.Session
-        Worker-owned session.
+    session : requests.Session, optional
+        Worker-owned session. Built dynamically if omitted.
     chunk_size : int, optional
         Copy buffer size.
+    proxy : str, optional
+        Proxy URL if session is created dynamically.
 
     Returns
     -------
@@ -71,18 +74,24 @@ def _copy_one(
         Success or failure metadata; never raises for I/O/network errors.
     """
     result = DownloadResult(url=url, dest=str(dest), ok=False, path=None, error="")
-    if cancel.is_set():
+    if cancel and cancel.is_set():
         result["error"] = "cancelled"
         return result
+
+    if session is None:
+        session = requests.Session()
+        if proxy:
+            session.proxies = {"http": proxy, "https": proxy}
 
     dest.parent.mkdir(parents=True, exist_ok=True)
     tmp = dest.with_name(dest.name + ".part")
     try:
         with session.get(url, stream=True, timeout=30) as resp:
             resp.raise_for_status()
+            resp.raw.decode_content = True
             with tmp.open("wb") as handle:
                 shutil.copyfileobj(resp.raw, handle, length=chunk_size)
-        if cancel.is_set():
+        if cancel and cancel.is_set():
             tmp.unlink(missing_ok=True)
             result["error"] = "cancelled"
             return result
@@ -123,11 +132,6 @@ def parallel_downloads(
     list of pathlib.Path or None
         Destination path on success, ``None`` on failure/cancel, in the
         same order as *items*.
-
-    Examples
-    --------
-    >>> parallel_downloads([])  # doctest: +SKIP
-    []
     """
     if not items:
         return []
@@ -136,38 +140,33 @@ def parallel_downloads(
     workers = max(1, int(max_workers))
     results: List[Optional[Path]] = [None] * len(items)
 
-    def _session() -> requests.Session:
+    def _worker(url: str, dest: Path) -> DownloadResult:
         session = requests.Session()
         if proxy:
             session.proxies = {"http": proxy, "https": proxy}
-        return session
-
-    # One session per worker slot to avoid sharing Session across threads.
-    sessions: List[requests.Session] = [_session() for _ in range(workers)]
-
-    try:
-        with ThreadPoolExecutor(max_workers=workers) as pool:
-            future_map = {}
-            for index, (url, dest) in enumerate(items):
-                if cancel.is_set():
-                    break
-                session = sessions[index % workers]
-                future = pool.submit(_copy_one, url, dest, cancel, session, chunk_size)
-                future_map[future] = index
-
-            for future in as_completed(list(future_map.keys())):
-                index = future_map[future]
-                try:
-                    outcome = future.result()
-                except Exception:  # noqa: BLE001
-                    continue
-                if outcome.ok and outcome.path is not None:
-                    results[index] = outcome.path
-                else:
-                    results[index] = None
-    finally:
-        for session in sessions:
+        try:
+            return _copy_one(url, dest, cancel, session, chunk_size)
+        finally:
             session.close()
+
+    with ThreadPoolExecutor(max_workers=workers) as pool:
+        future_map = {}
+        for index, (url, dest) in enumerate(items):
+            if cancel.is_set():
+                break
+            future = pool.submit(_worker, url, dest)
+            future_map[future] = index
+
+        for future in as_completed(list(future_map.keys())):
+            index = future_map[future]
+            try:
+                outcome = future.result()
+            except Exception:  # noqa: BLE001
+                continue
+            if outcome.ok and outcome.path is not None:
+                results[index] = outcome.path
+            else:
+                results[index] = None
 
     return results
 

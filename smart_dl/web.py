@@ -190,7 +190,10 @@ if "info" in st.session_state:
         # Thumbnail
         thumbs = info.get("thumbnails", [])
         if thumbs:
-            best = max(thumbs, key=lambda t: (t.get("width", 0) * t.get("height", 0)))
+            best = max(
+                thumbs,
+                key=lambda t: (t.get("width") or 0) * (t.get("height") or 0),
+            )
             st.image(best.get("url", ""), use_container_width=True)
 
     st.markdown("---")
