@@ -3,6 +3,15 @@
 All notable changes to SmartDL are documented here.
 Format follows [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
+## [3.14.1] - 2026-09-11
+
+### Fixed
+- Proxy: use `socks5h://` for SOCKS proxies to route DNS requests through proxy (prevents DNS poisoning in censored networks)
+- Proxy: localhost port menu now generates correct protocol (`socks5h://` for SOCKS ports like 10808/7891)
+- Education: `_fetch_html()` now passes saved browser cookies for authenticated course landing pages (Maktabkhooneh paid courses)
+- Windows EXE: keep console window open on errors so tracebacks can be read, and skip pip dependency checks in frozen builds
+- Windows EXE: update PyInstaller spec with all missing core and extractor submodules
+
 ---
 
 ## [3.14.0] - 2026-09-10

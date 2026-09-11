@@ -121,3 +121,58 @@ class TestNuxtPayload:
         )
         assert len(outline) == 2
         assert "excel-mk8334/ویدیو-کاربرد-برنامه-اکسل-چیست" in outline.lessons[0].url
+
+
+class TestFetchHtmlWithCookies:
+    def test_fetch_html_uses_browser_cookies(self) -> None:
+        from unittest.mock import MagicMock, patch
+
+        from smart_dl.extractors.education import _fetch_html
+
+        mock_session = MagicMock()
+        mock_resp = MagicMock()
+        mock_resp.text = "<html><body>authenticated content</body></html>"
+        mock_session.get.return_value = mock_resp
+
+        with patch("smart_dl.core.cookies.get_cookie_browser", return_value="firefox"), \
+             patch("smart_dl.core.browser_cookies.session_with_browser_cookies", return_value=mock_session) as mock_swbc, \
+             patch("smart_dl.core.proxy.get_current_proxy", return_value="socks5h://127.0.0.1:10808"):
+            html = _fetch_html("https://maktabkhooneh.org/course/python-mk123/")
+            assert html == "<html><body>authenticated content</body></html>"
+            mock_swbc.assert_called_once_with("firefox", domains=["maktabkhooneh.org"])
+            mock_session.get.assert_called_once()
+            assert mock_session.proxies.update.called
+
+    def test_fetch_html_without_browser_cookies(self) -> None:
+        from unittest.mock import MagicMock, patch
+
+        from smart_dl.extractors.education import _fetch_html
+
+        mock_session = MagicMock()
+        mock_resp = MagicMock()
+        mock_resp.text = "<html>public</html>"
+        mock_session.get.return_value = mock_resp
+
+        with patch("smart_dl.core.cookies.get_cookie_browser", return_value=None), \
+             patch("requests.Session", return_value=mock_session):
+            html = _fetch_html("https://maktabkhooneh.org/course/python-mk123/")
+            assert html == "<html>public</html>"
+            mock_session.get.assert_called_once()
+
+    def test_maktabkhooneh_outline_with_cookies(self) -> None:
+        from unittest.mock import patch
+
+        from smart_dl.extractors.education import parse_course_outline
+
+        mock_html = """
+        <html><head><title>آموزش پایتون پیشرفته</title></head><body>
+        <a class="group" href="/course/python-adv/ویدیو-۱">درس اول</a>
+        <a class="group" href="/course/python-adv/ویدیو-۲">درس دوم</a>
+        </body></html>
+        """
+        with patch("smart_dl.extractors.education._fetch_html", return_value=mock_html):
+            outline = parse_course_outline("https://maktabkhooneh.org/course/python-adv/")
+            assert len(outline) == 2
+            assert outline.platform == "Maktabkhooneh"
+            assert "پایتون پیشرفته" in outline.title
+

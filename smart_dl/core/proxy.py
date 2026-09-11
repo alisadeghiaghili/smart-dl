@@ -82,7 +82,7 @@ def _peek_registry_proxy() -> str:
 
     if "=" not in server:
         if _is_socks_port(server):
-            return f"socks5://{server}"
+            return f"socks5h://{server}"
         return f"http://{server}"
 
     parts: dict[str, str] = {}
@@ -93,7 +93,7 @@ def _peek_registry_proxy() -> str:
 
     socks = parts.get("socks") or parts.get("socks5")
     if socks:
-        return f"socks5://{socks}"
+        return f"socks5h://{socks}"
 
     https_p = parts.get("https")
     if https_p:
@@ -140,13 +140,31 @@ def _looks_like_proxy_url(addr: str) -> bool:
         parsed = urlparse(addr)
     except ValueError:
         return False
-    if parsed.scheme not in ("http", "https", "socks4", "socks5", "socks"):
+    if parsed.scheme not in ("http", "https", "socks4", "socks5", "socks", "socks5h", "socks4a"):
         return False
     if not parsed.hostname:
         return False
     if parsed.port is None:
         return False
     return True
+
+
+def _localhost_url(port: int) -> str:
+    """Build the correct proxy URL for a localhost port.
+
+    SOCKS5 ports use ``socks5h://`` (DNS through proxy) which is
+    required in censored networks where target domains are
+    DNS-poisoned.
+
+    Args:
+        port: Local port number.
+
+    Returns:
+        Proxy URL string.
+    """
+    if port in _SOCKS5_HINT_PORTS or port in {7891, 2080}:
+        return f"socks5h://127.0.0.1:{port}"
+    return f"http://127.0.0.1:{port}"
 
 
 def apply_proxy(addr: str) -> bool:
@@ -161,6 +179,10 @@ def apply_proxy(addr: str) -> bool:
     if not _looks_like_proxy_url(addr):
         warn("Not a valid proxy URL: " + addr)
         return False
+    # Suggest socks5h for better DNS-through-proxy support
+    if addr.startswith("socks5://") and not addr.startswith("socks5h://"):
+        info("Tip: socks5h:// routes DNS through the proxy too — "
+             "recommended for censored networks.")
     os.environ["HTTP_PROXY"]  = addr
     os.environ["HTTPS_PROXY"] = addr
     cfg = load_config()
@@ -191,7 +213,8 @@ def hint_proxy_port(addr):
         return
     if port in _SOCKS5_HINT_PORTS:
         warn("Port " + str(port) + " is typically used for SOCKS5, not HTTP.")
-        info("If the connection fails, try: socks5://" + addr.split("://", 1)[-1])
+        info("If the connection fails, try: socks5h://" + addr.split("://", 1)[-1])
+
 
 
 def proxy_menu():
@@ -216,7 +239,7 @@ def proxy_menu():
         elif ch == "1":
             addr = Prompt.ask("  [bold yellow]Proxy address[/bold yellow]").strip()
             if addr:
-                if not addr.startswith(("http://","https://","socks5://","socks4://")):
+                if not addr.startswith(("http://", "https://", "socks5://", "socks5h://", "socks4://", "socks4a://")):
                     addr = "http://" + addr
                 apply_proxy(addr)
                 hint_proxy_port(addr)
@@ -229,7 +252,7 @@ def proxy_menu():
             t2.add_column("Common use", style="dim",    width=32)
             t2.add_column("Address", style="cyan")
             for idx,(port,label) in enumerate(LOCALHOST_PORTS,1):
-                t2.add_row(str(idx), str(port), label, "http://127.0.0.1:" + str(port))
+                t2.add_row(str(idx), str(port), label, _localhost_url(port))
             t2.add_row("C", "custom", "Enter a custom port", "")
             t2.add_row("0", "back", "Return to proxy menu", "")
             console.print(t2)
@@ -239,11 +262,11 @@ def proxy_menu():
             if sel == "c":
                 p = Prompt.ask("  [bold yellow]Port[/bold yellow]").strip()
                 if p.isdigit():
-                    addr = "http://127.0.0.1:" + p
+                    addr = _localhost_url(int(p))
                     apply_proxy(addr); hint_proxy_port(addr); success("Proxy set: " + addr)
             elif sel.isdigit() and 1 <= int(sel) <= len(LOCALHOST_PORTS):
                 port, _ = LOCALHOST_PORTS[int(sel)-1]
-                addr = "http://127.0.0.1:" + str(port)
+                addr = _localhost_url(port)
                 apply_proxy(addr); hint_proxy_port(addr); success("Proxy set: " + addr)
             break
         elif ch == "3":

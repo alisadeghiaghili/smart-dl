@@ -17,12 +17,14 @@ def run() -> int:
     int
         Process exit code.
     """
-    from smart_dl import deps_available, ensure_deps
+    # Frozen builds (PyInstaller) bundle all deps — skip pip check.
+    if not getattr(sys, "frozen", False):
+        from smart_dl import deps_available, ensure_deps
 
-    if not deps_available():
-        # Frozen builds already bundle deps; this path is for source runs.
-        if not ensure_deps():
-            return 1
+        if not deps_available():
+            if not ensure_deps():
+                return 1
+
     from smart_dl.main import main as interactive_main
 
     interactive_main()
@@ -30,4 +32,17 @@ def run() -> int:
 
 
 if __name__ == "__main__":
-    sys.exit(run())
+    try:
+        code = run()
+    except KeyboardInterrupt:
+        code = 0
+    except Exception as exc:
+        # Keep the console window open so the user can read the error.
+        print(f"\nError: {exc}")
+        print("\nPress Enter to close...")
+        try:
+            input()
+        except EOFError:
+            pass
+        code = 1
+    sys.exit(code)

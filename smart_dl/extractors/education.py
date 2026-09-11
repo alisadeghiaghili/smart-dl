@@ -259,7 +259,10 @@ def platform_name(url: str) -> str:
 
 
 def _fetch_html(url: str) -> str:
-    """Fetch page HTML using the active proxy if configured.
+    """Fetch page HTML using browser cookies and proxy when available.
+
+    Uses the saved browser cookie source to access authenticated
+    course pages (e.g. Maktabkhooneh paid courses).
 
     Parameters
     ----------
@@ -271,8 +274,11 @@ def _fetch_html(url: str) -> str:
     str
         Response text (empty string on failure).
     """
+    from urllib.parse import urlparse
+
     import requests
 
+    from smart_dl.core.cookies import get_cookie_browser
     from smart_dl.core.proxy import get_current_proxy
 
     proxy = get_current_proxy()
@@ -285,9 +291,24 @@ def _fetch_html(url: str) -> str:
         ),
         "Accept-Language": "fa-IR,fa;q=0.9,en;q=0.8",
     }
+
+    browser = get_cookie_browser()
+    if browser:
+        from smart_dl.core.browser_cookies import session_with_browser_cookies
+
+        domain = urlparse(url).hostname or ""
+        session = session_with_browser_cookies(
+            browser, domains=[domain] if domain else None,
+        )
+    else:
+        session = requests.Session()
+
+    if proxies:
+        session.proxies.update(proxies)
+
     try:
-        resp = requests.get(
-            url, timeout=20, proxies=proxies, headers=headers, allow_redirects=True
+        resp = session.get(
+            url, timeout=20, headers=headers, allow_redirects=True,
         )
         resp.raise_for_status()
         return resp.text or ""
