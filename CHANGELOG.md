@@ -3,6 +3,17 @@
 All notable changes to SmartDL are documented here.
 Format follows [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
+## [3.16.0] - 2026-09-11
+
+### Fixed
+- Config: handle corrupted JSON config files without crashing (`load_config`)
+- Config: preserve Persian Unicode characters in config file using `ensure_ascii=False`
+- Utils: `fmt_dur(0)` now returns `"00:00:00"` instead of `"?"`
+- Utils: `safe_filename` checks filename stems against Windows reserved device names (e.g. `nul.txt` -> `_nul.txt`)
+- Retry: skip retrying non-transient file access errors (`PermissionError`, `NotADirectoryError`, `FileExistsError`)
+
+---
+
 ## [3.15.0] - 2026-09-11
 
 ### Added

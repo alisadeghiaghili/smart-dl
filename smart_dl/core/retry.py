@@ -253,7 +253,7 @@ def retry_with_backoff(
             last_error = exc
             msg = str(exc).lower()
 
-            if _is_fatal(msg):
+            if isinstance(exc, (PermissionError, NotADirectoryError, FileExistsError)) or _is_fatal(msg):
                 raise
 
             if _is_dns(msg):

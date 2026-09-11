@@ -88,10 +88,12 @@ def fmt_dur(s: Optional[Union[int, float]]) -> str:
 
     Examples
     --------
+    >>> fmt_dur(0)
+    '00:00:00'
     >>> fmt_dur(3661)
     '01:01:01'
     """
-    if not s:
+    if s is None:
         return "?"
     total = int(s)
     hours, rem = divmod(total, 3600)
@@ -116,7 +118,7 @@ def safe_filename(s: str, maxlen: int = 80) -> str:
     """
     cleaned = "".join(c for c in (s or "") if c.isalnum() or c in " ._-()[]").strip()
     cleaned = cleaned.rstrip(". ")
-    # Windows reserved device names
+    # Windows reserved device names (check stem before extension)
     reserved = {
         "con",
         "prn",
@@ -125,7 +127,8 @@ def safe_filename(s: str, maxlen: int = 80) -> str:
         *(f"com{i}" for i in range(1, 10)),
         *(f"lpt{i}" for i in range(1, 10)),
     }
-    if cleaned.lower() in reserved:
+    stem = cleaned.split(".")[0].lower() if cleaned else ""
+    if stem in reserved:
         cleaned = "_" + cleaned
     return (cleaned or "file")[:maxlen]
 
