@@ -1,6 +1,8 @@
 """Image gallery extractor — Pixiv, DeviantArt, ArtStation, Flickr, Tumblr, Imgur."""
+
 import re
 from pathlib import Path
+from typing import Any
 from urllib.parse import urlparse
 
 import requests
@@ -12,7 +14,8 @@ from smart_dl.utils import safe_filename
 try:
     from smart_dl.lang import t
 except ImportError:
-    def t(key, **kw):
+
+    def t(key: str, **kwargs: Any) -> str:
         return key
 
 

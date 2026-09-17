@@ -188,4 +188,4 @@ def list_themes() -> list:
 def apply_theme_to_style(style_key: str) -> str:
     """Get a style string from the current theme."""
     theme = get_theme()
-    return theme.get(style_key, "white")
+    return str(theme.get(style_key, "white"))

@@ -1,5 +1,7 @@
 """Subtitle support — download, search, and embed subtitles."""
 
+from typing import Any
+
 import yt_dlp
 from rich import box
 from rich.prompt import Prompt
@@ -12,7 +14,8 @@ from smart_dl.ui import console, error, info, print_section, success, warn
 try:
     from smart_dl.lang import t
 except ImportError:
-    def t(key, **kw):
+
+    def t(key: str, **kwargs: Any) -> str:
         return key
 
 

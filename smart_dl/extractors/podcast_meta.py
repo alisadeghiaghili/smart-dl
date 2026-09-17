@@ -213,5 +213,5 @@ def rss_from_platform_url(url: str, html: str = "") -> Optional[str]:
     if match:
         from urllib.parse import urljoin
 
-        return urljoin(url, match.group(1))
+        return str(urljoin(url, match.group(1)))
     return None

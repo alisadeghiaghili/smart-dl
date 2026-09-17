@@ -689,7 +689,7 @@ def queue_download_item(item, out_folder) -> bool:
     if is_podcast_url(url):
         from smart_dl.extractors.podcast import download_podcast_url
 
-        return download_podcast_url(url, out)
+        return bool(download_podcast_url(url, out))
     if is_aparat_url(url):
         from smart_dl.extractors.aparat import download_aparat
 
@@ -795,9 +795,11 @@ def _print_diagnostics() -> None:
         lines.append(f"  Browser     : {cookie_report['browser']}")
         if cookie_report["extract_ok"]:
             lines.append(f"  Cookies     : {cookie_report['total_cookies']} total")
-            for domain, count in (cookie_report["by_domain"] or {}).items():
-                mark = "[green]ok[/green]" if count else "[dim]0[/dim]"
-                lines.append(f"    {domain:20s} {count}  {mark}")
+            by_domain = cookie_report.get("by_domain") or {}
+            if isinstance(by_domain, dict):
+                for domain, count in by_domain.items():
+                    mark = "[green]ok[/green]" if count else "[dim]0[/dim]"
+                    lines.append(f"    {domain:20s} {count}  {mark}")
         else:
             lines.append(f"  Extract     : [red]FAILED[/red] {cookie_report['error']}")
     from smart_dl.core.cookies_file import get_cookies_file

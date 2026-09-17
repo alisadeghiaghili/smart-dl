@@ -1,5 +1,8 @@
 """YouTube extractor — format fetch, quality menu, download, playlists."""
+from __future__ import annotations
+
 from pathlib import Path
+from typing import Any
 from urllib.parse import urlparse
 
 import yt_dlp
@@ -15,12 +18,13 @@ from smart_dl.core.network import show_no_internet_panel
 from smart_dl.core.proxy import get_current_proxy
 from smart_dl.ui import console, error, info, print_section, success, warn
 from smart_dl.ui.progress import stop_event
-from smart_dl.utils import fmt_dur, fmt_size
+from smart_dl.utils import fmt_dur, fmt_size, quality_to_format
 
 try:
     from smart_dl.lang import t
 except ImportError:
-    def t(key, **kw):
+
+    def t(key: str, **kwargs: Any) -> str:
         return key
 
 
@@ -74,7 +78,7 @@ def yt_quality_menu(info_dict) -> tuple:
     _bq_sz  = fmt_size(_bv_sz + _ba_sz) if (_bv_sz + _ba_sz) else "?"
     _mp3_sz = fmt_size(_ba_sz) if _ba_sz else "?"
 
-    options = []
+    options: list = []
     table = Table(box=box.ROUNDED, show_header=True, header_style="bold magenta",
                   border_style="dim", padding=(0,1))
     table.add_column("#",       style="bold cyan",  width=4, justify="right")
@@ -190,7 +194,6 @@ def handle_playlist(
     bool
         ``True`` when at least one video downloaded and none remain failed.
     """
-    from smart_dl.utils import quality_to_format
 
     print_section("Analyzing playlist", "\U0001f4cb")
     prx = get_current_proxy()
@@ -287,10 +290,15 @@ def handle_playlist(
                 skipped.append((i, vid_title, "Skipped by user"))
                 continue
         else:
-            fmt, is_audio = (fmt if not audio_only else quality_to_format(quality)), (is_audio or audio_only)
+            if audio_only:
+                fmt = quality_to_format(quality)
+                is_audio = True
+            else:
+                fmt = shared_fmt if shared_fmt is not None else quality_to_format(quality)
+                is_audio = bool(shared_is_audio)
 
         try:
-            if not download_yt(vid_url, out_folder, fmt, is_audio):
+            if not download_yt(vid_url, out_folder, str(fmt), bool(is_audio)):
                 skipped.append((i, vid_title, "download failed"))
         except Exception as e:
             warn("Skipped: " + str(e)[:80])
@@ -344,9 +352,10 @@ def handle_playlist(
                 still_skipped.append((idx, vtitle, "Skipped by user"))
                 continue
         else:
-            fmt, is_audio = shared_fmt, shared_is_audio
+            fmt = shared_fmt if shared_fmt is not None else "bestvideo+bestaudio/best"
+            is_audio = shared_is_audio
         try:
-            download_yt(vid_url, out_folder, fmt, is_audio)
+            download_yt(vid_url, out_folder, str(fmt), bool(is_audio))
         except Exception as e:
             still_skipped.append((idx, vtitle, str(e)[:80]))
 
@@ -355,9 +364,9 @@ def handle_playlist(
         warn(str(len(still_skipped)) + " video(s) still failed after retry.")
         for idx, vtitle, reason in still_skipped:
             info(str(idx) + ". " + vtitle[:55] + " \u2014 " + reason[:50])
-    else:
-        success("All retried videos downloaded successfully.")
-        return True
+        return False
+    success("All retried videos downloaded successfully.")
+    return True
 
 
 

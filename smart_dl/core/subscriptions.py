@@ -73,11 +73,11 @@ def add_subscription(url: str, name: str = "", platform: str = "youtube",
             (url, name, platform, 1 if auto_download else 0, output_dir, now)
         )
         conn.commit()
-        sub_id = cursor.lastrowid
+        sub_id = int(cursor.lastrowid or -1)
     except sqlite3.IntegrityError:
         # Already subscribed
         row = conn.execute("SELECT id FROM subscriptions WHERE url=?", (url,)).fetchone()
-        sub_id = row["id"] if row else -1
+        sub_id = int(row["id"]) if row else -1
     conn.close()
     return sub_id
 
@@ -222,7 +222,7 @@ def add_subscription_video(sub_id: int, video_url: str, video_title: str = "", v
         conn.close()
 
 
-def toggle_subscription(sub_id: int, enabled: bool = None):
+def toggle_subscription(sub_id: int, enabled: Optional[bool] = None) -> None:
     """Toggle or set subscription enabled state.
 
     Parameters

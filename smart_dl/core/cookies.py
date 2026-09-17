@@ -21,7 +21,14 @@ class SilentLogger:
 
 
 def get_cookie_browser() -> str:
-    return load_config().get("cookie_browser", "")
+    """Return the configured cookie browser name.
+
+    Returns
+    -------
+    str
+        Browser key such as ``chrome``/``firefox``, or ``""`` when unset.
+    """
+    return str(load_config().get("cookie_browser") or "")
 
 def set_cookie_browser(browser: str):
     cfg = load_config()

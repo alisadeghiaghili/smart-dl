@@ -1,5 +1,7 @@
 """Aparat extractor — native support for Aparat videos and playlists."""
+
 import re
+from typing import Any
 from urllib.parse import urlparse
 
 import requests
@@ -16,7 +18,8 @@ from smart_dl.ui.progress import stop_event
 try:
     from smart_dl.lang import t
 except ImportError:
-    def t(key, **kw):
+
+    def t(key: str, **kwargs: Any) -> str:
         return key
 
 

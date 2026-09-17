@@ -118,12 +118,12 @@ def peek_current_proxy() -> str:
     if env:
         return env
 
-    cfg_proxy = load_config().get("proxy", "").strip()
+    cfg_proxy = str(load_config().get("proxy") or "").strip()
     if cfg_proxy:
         return cfg_proxy
 
     reg = _peek_registry_proxy()
-    return reg
+    return str(reg or "")
 
 
 def get_current_proxy() -> str:

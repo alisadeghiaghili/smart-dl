@@ -1,0 +1,6 @@
+{
+  "test": "value",
+  "nested": {
+    "key": 123
+  }
+}

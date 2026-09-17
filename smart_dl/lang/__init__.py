@@ -1,5 +1,8 @@
 """Language translation system for SmartDL."""
+from __future__ import annotations
+
 import os
+from typing import Any
 
 _current_lang = None
 
@@ -434,8 +437,26 @@ _FA = {
 _strings = {"en": _EN, "fa": _FA}
 
 
-def t(key: str, **kwargs) -> str:
-    """Translate a string key to the current language."""
+def t(key: str, **kwargs: Any) -> str:
+    """Translate a string key to the current language.
+
+    Parameters
+    ----------
+    key : str
+        Lookup key in the English/Persian dictionaries.
+    **kwargs : Any
+        Placeholder replacements for ``{name}`` tokens.
+
+    Returns
+    -------
+    str
+        Localized string, or the key when missing.
+
+    Examples
+    --------
+    >>> t("quit")
+    'bye'
+    """
     lang = get_lang()
     result = _strings.get(lang, _EN).get(key, _strings["en"].get(key, key))
     if kwargs:

@@ -42,6 +42,7 @@ web = [
 ]
 dev = [
     "pytest>=7.0",
+    "pytest-cov>=4.0",
     "mypy>=1.0",
     "ruff>=0.1.0",
     "build>=1.0",
@@ -59,10 +60,29 @@ Issues = "https://github.com/alisadeghiaghili/smart-dl/issues"
 include = ["smart_dl*"]
 
 [tool.mypy]
-python_version = "3.9"
+# mypy tool baseline; package still supports runtime Python 3.9+
+python_version = "3.10"
 warn_return_any = true
 warn_unused_configs = true
 disallow_untyped_defs = false
+ignore_missing_imports = true
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+
+[tool.coverage.run]
+source = ["smart_dl"]
+branch = false
+
+[tool.coverage.report]
+# Floor matches current measured coverage (~36%); raise deliberately after new tests.
+fail_under = 35
+skip_covered = true
+exclude_lines = [
+    "pragma: no cover",
+    "if TYPE_CHECKING:",
+    "raise NotImplementedError",
+]
 
 [tool.ruff]
 target-version = "py39"

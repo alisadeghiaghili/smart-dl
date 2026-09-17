@@ -31,13 +31,17 @@ jobs:
         run: |
           ruff check smart_dl/ tests/
 
+      - name: Type check with mypy
+        run: |
+          mypy smart_dl --ignore-missing-imports
+
       - name: Check syntax
         run: |
           python -m compileall -q smart_dl tests
 
-      - name: Run tests
+      - name: Run tests with coverage
         run: |
-          pytest tests/ -v --tb=short
+          pytest tests/ -v --tb=short --cov=smart_dl --cov-report=term-missing:skip-covered
 
       - name: Test CLI version flag
         run: |

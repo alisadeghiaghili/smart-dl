@@ -1,0 +1,4 @@
+# Netscape HTTP Cookie File
+.youtube.com	TRUE	/	FALSE	1893456000	SID	abc123
+.youtube.com	TRUE	/	FALSE	1893456000	HSID	def456
+example.com	FALSE	/	FALSE	1893456000	x	y

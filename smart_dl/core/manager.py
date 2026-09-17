@@ -3,7 +3,7 @@ from __future__ import annotations
 
 import os
 from datetime import datetime
-from typing import List, Optional, Set
+from typing import Any, List, Optional, Set
 
 from rich import box
 from rich.panel import Panel
@@ -21,7 +21,8 @@ from smart_dl.ui import console, info, success
 try:
     from smart_dl.lang import t
 except ImportError:
-    def t(key, **kw):
+
+    def t(key: str, **kwargs: Any) -> str:
         return key
 
 

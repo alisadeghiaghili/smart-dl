@@ -5,6 +5,10 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 ## [Unreleased]
 
+### Added
+- CI quality gates: `mypy smart_dl` and pytest coverage (`fail_under=35`) now run on every push/PR
+- `pytest-cov` added to the `dev` extra
+
 ### Changed
 - Official Python support floor is **3.9+** (matches CI matrix and runtime typing); dropped untested 3.8 claims from `pyproject.toml`, README badges, and tool targets
 - CI matrix now includes Python 3.10 on Ubuntu and Windows
@@ -15,6 +19,10 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 - History status vocabulary centralized in `HistoryStatus` (`completed` / `failed`); recorder, stats, and manager use the same values
 - Cleanup tests rewritten against a real SQLite history DB with production status strings (regression guard for the synonym bug)
 - Persian README version badge aligned with package version
+- Type safety: subscription history recording uses `video_title=` (was calling a non-existent `title=` kwarg)
+- Playlist download path no longer references unbound `fmt`/`is_audio` when using shared quality; returns explicit success/failure
+- Podcast non-interactive downloads accept default original format when no quality tuple is provided
+- Broad mypy cleanup: consistent `t()` fallback signatures, explicit returns, and safer dict/None handling
 
 ---
 

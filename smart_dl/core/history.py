@@ -189,7 +189,7 @@ def add_to_history(
             ),
         )
         conn.commit()
-        return int(cursor.lastrowid)
+        return int(cursor.lastrowid or 0)
     finally:
         conn.close()
 
