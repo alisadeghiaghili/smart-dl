@@ -1,47 +1,141 @@
-"""Tests for history cleanup safety — preventing deletion of re-downloaded files."""
+"""Cleanup safety tests against the production history status vocabulary."""
+
+from __future__ import annotations
 
 from pathlib import Path
-from unittest.mock import patch
 
+from smart_dl.core import history as history_store
+from smart_dl.core.history import HistoryStatus
 from smart_dl.core.manager import cleanup_downloads
+from smart_dl.core.recorder import record_download
 
 
-def test_cleanup_skips_redownloaded_file(tmp_path: Path):
-    """Test that cleanup_downloads does not delete files that were successfully re-downloaded."""
-    test_file = tmp_path / "video.mp4"
-    test_file.write_text("dummy content")
+def _use_history_db(tmp_path: Path) -> Path:
+    """Point history at an isolated SQLite file under *tmp_path*.
 
-    failed_records = [{"id": 1, "file_path": str(test_file), "status": "failed"}]
-    success_records = [{"id": 2, "file_path": str(test_file), "status": "success"}]
+    Parameters
+    ----------
+    tmp_path : pathlib.Path
+        Pytest temporary directory.
 
-    def mock_get_history(status=None, limit=10000):
-        if status == "failed":
-            return failed_records
-        if status == "success":
-            return success_records
-        return []
-
-    with patch("smart_dl.core.history.get_history", side_effect=mock_get_history):
-        cleaned = cleanup_downloads()
-        assert cleaned == 0
-        assert test_file.exists()
+    Returns
+    -------
+    pathlib.Path
+        The history database path under test.
+    """
+    db_path = tmp_path / "history.sqlite3"
+    history_store.set_history_db_path_for_tests(db_path)
+    history_store.init_db()
+    return db_path
 
 
-def test_cleanup_deletes_pure_failures(tmp_path: Path):
-    """Test that cleanup_downloads removes files for pure failures without successful re-downloads."""
-    test_file = tmp_path / "failed_video.mp4"
-    test_file.write_text("dummy content")
+def _reset_history_db_path() -> None:
+    history_store.set_history_db_path_for_tests(None)
 
-    failed_records = [{"id": 1, "file_path": str(test_file), "status": "failed"}]
 
-    def mock_get_history(status=None, limit=10000):
-        if status == "failed":
-            return failed_records
-        if status == "success":
-            return []
-        return []
+def test_history_status_vocabulary_is_canonical() -> None:
+    """Production writers and queries must share completed/failed only."""
+    assert HistoryStatus.COMPLETED == "completed"
+    assert HistoryStatus.FAILED == "failed"
+    assert HistoryStatus.values() == frozenset({"completed", "failed"})
 
-    with patch("smart_dl.core.history.get_history", side_effect=mock_get_history):
-        cleaned = cleanup_downloads()
-        assert cleaned == 1
-        assert not test_file.exists()
+
+def test_cleanup_skips_file_re_downloaded_successfully(tmp_path: Path) -> None:
+    """Failed then completed rows on the same path must not delete the file.
+
+    Uses the real history store so a wrong status synonym cannot silently pass.
+    """
+    media = tmp_path / "video.mp4"
+    media.write_text("payload", encoding="utf-8")
+
+    _use_history_db(tmp_path)
+    try:
+        record_download(
+            "https://example.com/v1",
+            success=False,
+            title="first attempt",
+            file_path=media,
+            error="network reset",
+        )
+        record_download(
+            "https://example.com/v1",
+            success=True,
+            title="retry ok",
+            file_path=media,
+        )
+
+        completed = history_store.get_history(status=HistoryStatus.COMPLETED)
+        failed = history_store.get_history(status=HistoryStatus.FAILED)
+        assert len(completed) == 1
+        assert len(failed) == 1
+        assert completed[0]["status"] == HistoryStatus.COMPLETED
+        assert failed[0]["status"] == HistoryStatus.FAILED
+
+        removed = cleanup_downloads(dry_run=False)
+        assert removed == 0
+        assert media.exists()
+    finally:
+        _reset_history_db_path()
+
+
+def test_cleanup_removes_pure_failed_file(tmp_path: Path) -> None:
+    """Files only referenced by failed history rows are deleted."""
+    media = tmp_path / "failed_video.mp4"
+    media.write_text("partial", encoding="utf-8")
+
+    _use_history_db(tmp_path)
+    try:
+        record_download(
+            "https://example.com/v2",
+            success=False,
+            title="broken",
+            file_path=media,
+            error="timeout",
+        )
+
+        dry = cleanup_downloads(dry_run=True)
+        assert dry == 0
+        assert media.exists()
+
+        removed = cleanup_downloads(dry_run=False)
+        assert removed == 1
+        assert not media.exists()
+    finally:
+        _reset_history_db_path()
+
+
+def test_cleanup_does_not_treat_success_synonym_as_completed(tmp_path: Path) -> None:
+    """Regression: cleanup must query ``completed``, not a ``success`` synonym.
+
+    If someone reintroduces ``status="success"`` in cleanup, completed rows are
+    invisible and a re-downloaded file gets deleted. This test writes a
+    completed row with production vocabulary and asserts cleanup stays safe.
+    """
+    media = tmp_path / "redownloaded.mp4"
+    media.write_text("ok", encoding="utf-8")
+
+    _use_history_db(tmp_path)
+    try:
+        history_store.add_to_history(
+            url="https://example.com/v3",
+            title="legacy failed marker",
+            file_path=str(media),
+            status=HistoryStatus.FAILED,
+        )
+        history_store.add_to_history(
+            url="https://example.com/v3",
+            title="success synonym must not be required",
+            file_path=str(media),
+            status=HistoryStatus.COMPLETED,
+        )
+
+        completed_paths = {
+            r["file_path"]
+            for r in history_store.get_history(status=HistoryStatus.COMPLETED)
+            if r.get("file_path")
+        }
+        assert str(media) in completed_paths
+        assert cleanup_downloads() == 0
+        assert media.exists()
+    finally:
+        _reset_history_db_path()

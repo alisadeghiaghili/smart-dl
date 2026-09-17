@@ -11,6 +11,7 @@ from typing import Any, List, Optional
 from smart_dl.core.paths import get_db_path
 
 __all__ = [
+    "HistoryStatus",
     "add_to_history",
     "export_history",
     "get_history",
@@ -19,6 +20,41 @@ __all__ = [
     "init_db",
     "search_history",
 ]
+
+
+class HistoryStatus:
+    """Canonical download-history status vocabulary.
+
+    The SQLite ``history.status`` column and every filter/query must use these
+    values. Do not invent synonyms such as ``success`` — cleanup safety and
+    stats depend on one vocabulary.
+
+    Attributes
+    ----------
+    COMPLETED : str
+        Download finished successfully (``"completed"``).
+    FAILED : str
+        Download did not finish (``"failed"``).
+    """
+
+    COMPLETED: str = "completed"
+    FAILED: str = "failed"
+
+    @classmethod
+    def values(cls) -> frozenset[str]:
+        """Return the set of valid status strings.
+
+        Returns
+        -------
+        frozenset of str
+            ``{"completed", "failed"}``.
+
+        Examples
+        --------
+        >>> HistoryStatus.COMPLETED in HistoryStatus.values()
+        True
+        """
+        return frozenset({cls.COMPLETED, cls.FAILED})
 
 _db_path_override: Optional[Path] = None
 
@@ -84,7 +120,7 @@ def add_to_history(
     duration: float = 0,
     format_str: str = "",
     is_audio: bool = False,
-    status: str = "completed",
+    status: str = HistoryStatus.COMPLETED,
     error: str = "",
     extra_data: Optional[dict] = None,
 ) -> int:
@@ -111,9 +147,9 @@ def add_to_history(
     is_audio : bool, optional
         Whether the download was audio-only.
     status : str, optional
-        ``completed`` or ``failed``.
+        Canonical status from :class:`HistoryStatus` (default ``completed``).
     error : str, optional
-        Error message when status is ``failed``.
+        Error message when status is ``HistoryStatus.FAILED``.
     extra_data : dict, optional
         Extra JSON-serializable metadata.
 
@@ -121,6 +157,11 @@ def add_to_history(
     -------
     int
         Row id of the inserted record.
+
+    Examples
+    --------
+    >>> add_to_history("https://youtu.be/x", status=HistoryStatus.FAILED)  # doctest: +SKIP
+    1
     """
     conn = _get_conn()
     try:
@@ -234,7 +275,8 @@ def get_history_stats() -> dict:
         stats: dict[str, Any] = {}
         row = conn.execute(
             "SELECT COUNT(*) AS cnt, SUM(file_size) AS total_size, "
-            "SUM(duration) AS total_dur FROM history WHERE status='completed'"
+            "SUM(duration) AS total_dur FROM history WHERE status=?",
+            (HistoryStatus.COMPLETED,),
         ).fetchone()
         stats["total_downloads"] = row["cnt"] or 0
         stats["total_size"] = row["total_size"] or 0
@@ -242,15 +284,16 @@ def get_history_stats() -> dict:
 
         rows = conn.execute(
             "SELECT platform, COUNT(*) AS cnt FROM history "
-            "WHERE status='completed' GROUP BY platform"
+            "WHERE status=? GROUP BY platform",
+            (HistoryStatus.COMPLETED,),
         ).fetchall()
         stats["by_platform"] = {r["platform"]: r["cnt"] for r in rows}
 
         week_ago = time.time() - 7 * 86400
         row = conn.execute(
             "SELECT COUNT(*) AS cnt FROM history "
-            "WHERE status='completed' AND downloaded_at > ?",
-            (week_ago,),
+            "WHERE status=? AND downloaded_at > ?",
+            (HistoryStatus.COMPLETED, week_ago),
         ).fetchone()
         stats["this_week"] = row["cnt"] or 0
         return stats

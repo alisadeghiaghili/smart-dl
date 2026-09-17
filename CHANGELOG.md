@@ -3,6 +3,16 @@
 All notable changes to SmartDL are documented here.
 Format follows [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
+## [Unreleased]
+
+### Fixed
+- History cleanup safety: `cleanup_downloads` now queries production status `completed` via `HistoryStatus` instead of the non-existent synonym `success`, so files that were re-downloaded successfully are not deleted
+- Cleanup removed dead code after `return`; success message now prints when files are removed
+- History status vocabulary centralized in `HistoryStatus` (`completed` / `failed`); recorder, stats, and manager use the same values
+- Cleanup tests rewritten against a real SQLite history DB with production status strings (regression guard for the synonym bug)
+
+---
+
 ## [3.18.0] - 2026-09-11
 
 ### Added

@@ -1,11 +1,21 @@
 """Download management — list, filter, sort, export, cleanup."""
+from __future__ import annotations
+
 import os
+from datetime import datetime
+from typing import List, Optional, Set
 
 from rich import box
 from rich.panel import Panel
 from rich.table import Table
 
-from smart_dl.core.history import export_history, get_history, get_history_stats, search_history
+from smart_dl.core.history import (
+    HistoryStatus,
+    export_history,
+    get_history,
+    get_history_stats,
+    search_history,
+)
 from smart_dl.ui import console, info, success
 
 try:
@@ -15,9 +25,33 @@ except ImportError:
         return key
 
 
-def list_downloads(limit: int = 50, sort_by: str = "date", filter_by: str = None,
-                   status_filter: str = None, search: str = None):
-    """List download history with optional filters."""
+def list_downloads(
+    limit: int = 50,
+    sort_by: str = "date",
+    filter_by: Optional[str] = None,
+    status_filter: Optional[str] = None,
+    search: Optional[str] = None,
+) -> None:
+    """List download history with optional filters.
+
+    Parameters
+    ----------
+    limit : int, optional
+        Maximum rows to display.
+    sort_by : str, optional
+        ``date``, ``name``, or ``size``.
+    filter_by : str, optional
+        Platform slug filter.
+    status_filter : str, optional
+        Canonical history status (``HistoryStatus``).
+    search : str, optional
+        Substring search across title/uploader/url.
+
+    Returns
+    -------
+    None
+        Prints a table to the console.
+    """
     if search:
         rows = search_history(search, limit=limit)
     else:
@@ -47,12 +81,17 @@ def list_downloads(limit: int = 50, sort_by: str = "date", filter_by: str = None
     from smart_dl.utils import fmt_size
 
     for r in rows:
-        from datetime import datetime
         ts = r.get("downloaded_at", 0)
         date_str = datetime.fromtimestamp(ts).strftime("%Y-%m-%d") if ts else "?"
         size = fmt_size(r.get("file_size", 0))
         status = r.get("status", "?")
-        status_style = "[green]" if status == "completed" else "[red]" if status == "failed" else "[yellow]"
+        if status == HistoryStatus.COMPLETED:
+            status_style = ""
+        elif status == HistoryStatus.FAILED:
+            status_style = "[red]"
+        else:
+            status_style = "[yellow]"
+        status_cell = status if not status_style else status_style + status + "[/]"
 
         table.add_row(
             str(r.get("id", "?")),
@@ -60,7 +99,7 @@ def list_downloads(limit: int = 50, sort_by: str = "date", filter_by: str = None
             r.get("platform", "?"),
             size,
             date_str,
-            status_style + status + "[/]" if status != "completed" else status,
+            status_cell,
         )
 
     console.print(table)
@@ -97,26 +136,61 @@ def export_downloads(output_path: str = "downloads.json"):
     success(f"Exported to {output_path}")
 
 
-def cleanup_downloads(dry_run: bool = False) -> int:
-    """Remove failed/incomplete downloads.
+def _history_file_paths(status: str) -> Set[str]:
+    """Collect non-empty ``file_path`` values for one history status.
 
-    Skips files that were subsequently re-downloaded successfully to prevent data loss.
+    Parameters
+    ----------
+    status : str
+        Canonical status value from :class:`HistoryStatus`.
+
+    Returns
+    -------
+    set of str
+        Absolute or recorded file paths present in history for that status.
     """
-    from smart_dl.core.history import get_history
+    rows = get_history(status=status, limit=10000)
+    return {r.get("file_path", "") for r in rows if r.get("file_path")}
 
-    rows = get_history(status="failed", limit=10000)
-    if not rows:
+
+def cleanup_downloads(dry_run: bool = False) -> int:
+    """Remove files recorded under failed downloads.
+
+    A file is skipped when any history row marks it ``HistoryStatus.COMPLETED``
+    so a later successful re-download is not deleted. Uses the production
+    status vocabulary only — never a synonym such as ``success``.
+
+    Parameters
+    ----------
+    dry_run : bool, optional
+        When ``True``, only report what would be removed.
+
+    Returns
+    -------
+    int
+        Number of files actually removed (``0`` when ``dry_run`` is ``True``).
+
+    Examples
+    --------
+    >>> cleanup_downloads(dry_run=True)  # doctest: +SKIP
+    0
+    """
+    failed_rows = get_history(status=HistoryStatus.FAILED, limit=10000)
+    if not failed_rows:
         info("No failed downloads to clean up.")
         return 0
 
-    success_rows = get_history(status="success", limit=10000)
-    success_paths = {r.get("file_path", "") for r in success_rows if r.get("file_path")}
+    completed_paths = _history_file_paths(HistoryStatus.COMPLETED)
 
-    files_to_remove = []
-    for r in rows:
-        fp = r.get("file_path", "")
-        if fp and fp not in success_paths and os.path.isfile(fp):
-            files_to_remove.append(fp)
+    files_to_remove: List[str] = []
+    for record in failed_rows:
+        file_path = record.get("file_path", "")
+        if (
+            file_path
+            and file_path not in completed_paths
+            and os.path.isfile(file_path)
+        ):
+            files_to_remove.append(file_path)
 
     if not files_to_remove:
         info("No files to clean up.")
@@ -124,19 +198,18 @@ def cleanup_downloads(dry_run: bool = False) -> int:
 
     if dry_run:
         info(f"Would remove {len(files_to_remove)} files:")
-        for f in files_to_remove[:20]:
-            info(f"  {f}")
+        for path in files_to_remove[:20]:
+            info(f"  {path}")
         if len(files_to_remove) > 20:
             info(f"  ... and {len(files_to_remove) - 20} more")
         return 0
 
     removed = 0
-    for f in files_to_remove:
+    for path in files_to_remove:
         try:
-            os.remove(f)
+            os.remove(path)
             removed += 1
-        except Exception:
-            pass
-    return removed
-
+        except OSError:
+            continue
     success(f"Removed {removed}/{len(files_to_remove)} files")
+    return removed
