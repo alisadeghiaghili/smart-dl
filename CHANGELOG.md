@@ -6,6 +6,11 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 ## [Unreleased]
 
 ### Added
+- `--update-ytdlp` and `SMARTDL_UPDATE_YTDLP=1` for opt-in yt-dlp upgrades
+- `--set-cookie-browser` to persist Firefox/Edge/Chrome cookie source
+- `--export-config` / `--import-config` portable settings (secrets never exported)
+- `--watch-clipboard` link grabber with queue enqueue
+- Telegram notify: `--set-telegram-token`, `--set-telegram-chat`, `--notify-test`; fires on `record_download`
 - CI quality gates: `mypy smart_dl` and pytest coverage (`fail_under=35`) now run on every push/PR
 - `pytest-cov` added to the `dev` extra
 - Extractor routing registry (`smart_dl.extractors.registry`) + shared CLI/queue dispatch module

@@ -148,6 +148,13 @@ smart-dl "https://youtube.com/watch?v=abc123"
 smart-dl URL -q 1080 -o ~/Downloads
 smart-dl URL -q 4k --format mkv
 smart-dl URL --limit-rate 2M
+smart-dl --update-ytdlp
+smart-dl --set-cookie-browser firefox
+smart-dl --export-config backup.json
+smart-dl --import-config backup.json
+smart-dl --watch-clipboard --watch-max 5
+smart-dl --set-telegram-token BOT_TOKEN --set-telegram-chat CHAT_ID
+smart-dl --notify-test
 
 # Video clipping
 smart-dl URL --clip 00:01:30-00:05:00

@@ -26,6 +26,14 @@ from smart_dl.commands.subscriptions import (
     handle_subscribe,
     handle_unsubscribe,
 )
+from smart_dl.commands.wave_features import (
+    handle_clipboard_watch,
+    handle_config_export,
+    handle_config_import,
+    handle_notify_test,
+    handle_set_cookie_browser,
+    handle_update_ytdlp,
+)
 from smart_dl.extractors.dispatch import dispatch_url_download
 
 __all__ = [
@@ -183,6 +191,63 @@ def build_parser() -> argparse.ArgumentParser:
         type=str,
         default=None,
         help="Max download rate (e.g. 500K, 2M) — fair use on shared links",
+    )
+    parser.add_argument(
+        "--update-ytdlp",
+        action="store_true",
+        help="Upgrade yt-dlp before continuing (also SMARTDL_UPDATE_YTDLP=1)",
+    )
+    parser.add_argument(
+        "--set-cookie-browser",
+        type=str,
+        default=None,
+        help="Save cookie browser for downloads (firefox, edge, chrome, ...) or 'clear'",
+    )
+    parser.add_argument(
+        "--export-config",
+        type=str,
+        default=None,
+        help="Export portable config keys to a JSON file",
+    )
+    parser.add_argument(
+        "--import-config",
+        type=str,
+        default=None,
+        help="Import portable config keys from a JSON file",
+    )
+    parser.add_argument(
+        "--watch-clipboard",
+        action="store_true",
+        help="Watch clipboard for media URLs and enqueue them (link grabber)",
+    )
+    parser.add_argument(
+        "--watch-interval",
+        type=float,
+        default=2.0,
+        help="Clipboard poll interval seconds (default: 2)",
+    )
+    parser.add_argument(
+        "--watch-max",
+        type=int,
+        default=10,
+        help="Stop clipboard watcher after N new URLs (default: 10)",
+    )
+    parser.add_argument(
+        "--notify-test",
+        action="store_true",
+        help="Send a Telegram test message using saved bot settings",
+    )
+    parser.add_argument(
+        "--set-telegram-token",
+        type=str,
+        default=None,
+        help="Save Telegram bot token (kept out of config exports)",
+    )
+    parser.add_argument(
+        "--set-telegram-chat",
+        type=str,
+        default=None,
+        help="Save Telegram chat id for completion notifications",
     )
 
     # Batches & Queue
@@ -371,6 +436,9 @@ def run_cli() -> None:
     parser = build_parser()
     args = parser.parse_args()
 
+    # Opt-in yt-dlp upgrade (R2) — before any download path.
+    handle_update_ytdlp(getattr(args, "update_ytdlp", False))
+
     if args.theme:
         from smart_dl.ui.themes import set_theme
 
@@ -393,6 +461,40 @@ def run_cli() -> None:
         from smart_dl.lang import set_lang
 
         set_lang(args.lang)
+
+    # Wave 1–2 settings / ops commands (terminal when no URL follow-up needed)
+    if getattr(args, "set_cookie_browser", None) is not None:
+        handle_set_cookie_browser(args.set_cookie_browser)
+        return
+    if getattr(args, "export_config", None):
+        handle_config_export(args.export_config)
+        return
+    if getattr(args, "import_config", None):
+        handle_config_import(args.import_config)
+        return
+    if getattr(args, "notify_test", False):
+        handle_notify_test()
+        return
+    if getattr(args, "set_telegram_token", None) or getattr(args, "set_telegram_chat", None):
+        from smart_dl.core.config import load_config, save_config
+        from smart_dl.ui import success
+
+        cfg = load_config()
+        if getattr(args, "set_telegram_token", None) is not None:
+            cfg["telegram_bot_token"] = args.set_telegram_token
+        if getattr(args, "set_telegram_chat", None) is not None:
+            cfg["telegram_chat_id"] = args.set_telegram_chat
+        cfg["telegram_notify"] = True
+        save_config(cfg)
+        success("Telegram settings saved (token is never exported via --export-config).")
+        return
+    if getattr(args, "watch_clipboard", False):
+        handle_clipboard_watch(
+            interval=float(getattr(args, "watch_interval", 2.0) or 2.0),
+            max_items=getattr(args, "watch_max", 10),
+            enqueue=True,
+        )
+        return
 
     if args.cookies_file:
         from smart_dl.core.cookies_file import load_netscape_cookies, set_cookies_file
