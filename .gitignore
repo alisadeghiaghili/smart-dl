@@ -34,11 +34,7 @@ Downloads/
 .DS_Store
 Thumbs.db
 
-# Local editor/agent scratch
-.agents/
-*.local
-
-# Test artifacts
+# Test artifacts & coverage
 .pytest_cache/
 .coverage
 htmlcov/
@@ -47,10 +43,9 @@ htmlcov/
 /[0-9]*.0
 /[0-9]*.[0-9]*
 
-# local scratch
+# Local editor/agent scratch
+.agents/
+*.local
 .tmp_pytest/
 .tmp_*.py
-.pytest_cache/
-.coverage
-htmlcov/
-
+.tmp_*.json

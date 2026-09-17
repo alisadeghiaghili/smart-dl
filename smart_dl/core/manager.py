@@ -59,7 +59,7 @@ def list_downloads(
         rows = get_history(limit=limit, platform=filter_by, status=status_filter)
 
     if not rows:
-        info("No downloads found.")
+        info(t("no_downloads") if t("no_downloads") != "no_downloads" else "No downloads found.")
         return
 
     # Sort
@@ -104,7 +104,7 @@ def list_downloads(
         )
 
     console.print(table)
-    info(f"Showing {len(rows)} downloads")
+    info(f"{t('showing_downloads') if t('showing_downloads') != 'showing_downloads' else 'Showing'} {len(rows)} downloads")
 
 
 def show_stats():
@@ -178,7 +178,7 @@ def cleanup_downloads(dry_run: bool = False) -> int:
     """
     failed_rows = get_history(status=HistoryStatus.FAILED, limit=10000)
     if not failed_rows:
-        info("No failed downloads to clean up.")
+        info(t("no_failed_downloads") if t("no_failed_downloads") != "no_failed_downloads" else "No failed downloads to clean up.")
         return 0
 
     completed_paths = _history_file_paths(HistoryStatus.COMPLETED)
@@ -194,7 +194,7 @@ def cleanup_downloads(dry_run: bool = False) -> int:
             files_to_remove.append(file_path)
 
     if not files_to_remove:
-        info("No files to clean up.")
+        info(t("no_cleanup_files") if t("no_cleanup_files") != "no_cleanup_files" else "No files to clean up.")
         return 0
 
     if dry_run:

@@ -8,10 +8,17 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 ### Added
 - CI quality gates: `mypy smart_dl` and pytest coverage (`fail_under=35`) now run on every push/PR
 - `pytest-cov` added to the `dev` extra
+- Extractor routing registry (`smart_dl.extractors.registry`) + shared CLI/queue dispatch module
+- README capability matrix (native / partial / yt-dlp passthrough)
+- Subscription auto-download honors per-subscription `auto_download` flag (in addition to `SMARTDL_SUBS_AUTODL=1`)
+- Manager history messages use language keys when available
+- PyInstaller spec collects all `smart_dl` submodules
 
 ### Changed
 - Official Python support floor is **3.9+** (matches CI matrix and runtime typing); dropped untested 3.8 claims from `pyproject.toml`, README badges, and tool targets
 - CI matrix now includes Python 3.10 on Ubuntu and Windows
+- `python smart_dl.py` now delegates to `smart_dl.__main__.main` (single bootstrap path)
+- ROADMAP marks cookies.txt / partial FA i18n / partial channel autodownload as done-or-partial
 
 ### Fixed
 - History cleanup safety: `cleanup_downloads` now queries production status `completed` via `HistoryStatus` instead of the non-existent synonym `success`, so files that were re-downloaded successfully are not deleted

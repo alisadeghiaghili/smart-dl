@@ -17,9 +17,23 @@ Designed for users behind weak connections and VPNs — SmartDL never gives up.
 
 ## Features
 
+### Capability matrix (honest)
+
+| Area | Status | Notes |
+|------|--------|-------|
+| YouTube | **Native** | Format menu, playlists, thumbnails, yt-dlp engine |
+| Aparat | **Native** | Videos + playlists |
+| Podcasts / RSS / Castbox | **Native** | Feed discovery, episode batch download |
+| Maktabkhooneh / Faradars / Coursera | **Partial native** | Outline parse + yt-dlp per lesson; cookies required for paid content |
+| Persian platforms (Namava, Filimo, …) | **Partial** | Detection + yt-dlp fallback |
+| Udemy / Hotmart / Teachable / … | **Detection only** | Falls back to yt-dlp; no DRM bypass |
+| Torrent / magnet | **External tools** | Needs aria2c, transmission, or qBittorrent |
+| 1800+ other sites | **yt-dlp passthrough** | Not native extractors |
+| Persian UI | **Partial** | Interactive strings localized; large parts of CLI still English |
+
 ### Core
 - **YouTube** — full format list (all resolutions, all audio tracks), video info panel
-- **Aparat, Maktabkhooneh & Faradars** — native support for Iranian video & education platforms
+- **Aparat, Maktabkhooneh & Faradars** — support for Iranian video & education platforms (see matrix)
 - **1800+ sites via yt-dlp** — TikTok, Instagram, Twitter/X, Reddit, Twitch, Vimeo, SoundCloud, and more
 - **Podcasts** — direct MP3/M4A links, RSS feeds, SoundCloud, Castbox, and more
 
@@ -46,14 +60,14 @@ Designed for users behind weak connections and VPNs — SmartDL never gives up.
 ### Queue & History
 - **Download queue** — add multiple URLs, process sequentially or in parallel
 - **Download history** — SQLite database with search, filter, and export
-- **Subscriptions** — follow channels and auto-download new uploads
+- **Subscriptions** — follow channels; auto-download when a subscription has `auto_download` enabled or `SMARTDL_SUBS_AUTODL=1`
 
 ### Extra Features
 - **Image galleries** — download from Pixiv, DeviantArt, ArtStation, Flickr, Imgur
 - **Torrent/magnet** — download torrents via aria2c, transmission, or qBittorrent
 - **Portable mode** — run from USB stick without touching system directories
 - **12 CLI themes** — Dracula, Catppuccin, Nord, Tokyo Night, and more
-- **Persian/Farsi UI** — full Persian language support
+- **Persian/Farsi UI** — full Persian language support (see matrix)
 - **CLI automation** — 40+ flags for scripting and automation
 
 ---

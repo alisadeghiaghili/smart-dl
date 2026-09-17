@@ -8,7 +8,6 @@ from pathlib import Path
 from typing import Optional
 
 from smart_dl import VERSION
-from smart_dl.extractors.torrent import is_magnet_link, is_torrent_file
 
 
 def build_parser():
@@ -310,8 +309,19 @@ def run_cli():
         for upload in result["new_uploads"]:
             info(f"  {upload.video_id}  {upload.title[:60]}  {upload.url[:70]}")
 
-        # Opt-in auto-download for discovered uploads.
-        if os.environ.get("SMARTDL_SUBS_AUTODL") != "1":
+        # Auto-download when env flag is set OR the subscription opted in.
+        auto_env = os.environ.get("SMARTDL_SUBS_AUTODL") == "1"
+        sub_auto_ids = {
+            int(sub["id"])
+            for sub in get_subscriptions()
+            if int(sub.get("auto_download") or 0) == 1
+        }
+        pending = [
+            up
+            for up in result["new_uploads"]
+            if auto_env or int(up.get("sub_id") or 0) in sub_auto_ids
+        ]
+        if not pending:
             return
 
         from pathlib import Path
@@ -322,7 +332,7 @@ def run_cli():
 
         out = get_default_download_dir()
         out.mkdir(parents=True, exist_ok=True)
-        for upload in result["new_uploads"]:
+        for upload in pending:
             if stop_event.is_set():
                 break
             info(f"Downloading {upload.title[:50]}...")
@@ -421,22 +431,15 @@ def run_cli():
 
 
 def _download_single_url(url: str, args, out_folder: Path) -> bool:
-    """Dispatch and download a single URL through appropriate extractor."""
-    from smart_dl.core.downloader import download_with_features
-    from smart_dl.extractors.gallery import download_gallery, is_gallery_url
-    from smart_dl.extractors.podcast_meta import is_podcast_platform_url
+    """Dispatch and download a single URL through appropriate extractor.
+
+    Media routing lives in :mod:`smart_dl.extractors.dispatch` (registry).
+    This function only handles CLI-only pre-steps (subtitles/thumbnail).
+    """
+    from smart_dl.extractors.dispatch import dispatch_url_download
     from smart_dl.extractors.subtitles import (
         download_subtitles_for_video,
         list_subtitles,
-    )
-    from smart_dl.extractors.torrent import download_torrent
-    from smart_dl.ui import info
-    from smart_dl.utils import (
-        is_aparat_url,
-        is_playlist_url,
-        is_podcast_url,
-        is_youtube_url,
-        quality_to_format,
     )
 
     # ── List subtitles ────────────────────────────────────────────────
@@ -470,115 +473,7 @@ def _download_single_url(url: str, args, out_folder: Path) -> bool:
         download_thumbnail(url, out_folder)
         return True
 
-    # ── Torrent ───────────────────────────────────────────────────────
-    if is_magnet_link(url) or is_torrent_file(url):
-        download_torrent(url, out_folder)
-        return True
-
-    # ── Gallery ───────────────────────────────────────────────────────
-    if args.gallery or is_gallery_url(url):
-        download_gallery(url, out_folder)
-        return True
-
-    # ── Playlists ─────────────────────────────────────────────────────
-    if is_playlist_url(url):
-        if is_aparat_url(url):
-            from smart_dl.extractors.aparat import handle_aparat_playlist
-
-            return bool(handle_aparat_playlist(url, out_folder))
-        from smart_dl.extractors.youtube import handle_playlist
-
-        return bool(
-            handle_playlist(
-                url,
-                out_folder,
-                audio_only=args.audio_only,
-                quality=args.quality,
-                audio_format=args.audio_format,
-            )
-        )
-
-    # ── Aparat ────────────────────────────────────────────────────────
-    if is_aparat_url(url):
-        from smart_dl.extractors.aparat import download_aparat
-
-        return bool(download_aparat(url, out_folder))
-
-    # ── YouTube ───────────────────────────────────────────────────────
-    if is_youtube_url(url):
-        fmt = quality_to_format(args.quality)
-        is_audio = args.audio_only
-        return download_with_features(
-            url,
-            out_folder,
-            fmt=fmt,
-            is_audio=is_audio,
-            clip=args.clip,
-            sponsorblock=args.sponsorblock,
-            audio_format=args.audio_format,
-            audio_quality=args.audio_quality,
-            output_format=args.format,
-            embed_metadata=args.embed_metadata,
-            embed_thumbnail=args.embed_thumbnail,
-            embed_subs=args.embed_subs,
-            geo_bypass=args.geo_bypass,
-            impersonate=args.impersonate,
-            output_template=args.output_template,
-            quiet=args.quiet,
-        )
-
-    # ── Podcasts ──────────────────────────────────────────────────────
-    if is_podcast_url(url) or is_podcast_platform_url(url):
-        from smart_dl.extractors.podcast import handle_podcast
-
-        return bool(
-            handle_podcast(
-                url,
-                out_folder,
-                max_episodes=args.max_episodes,
-                download_all=args.all_episodes,
-            )
-        )
-
-    # ── Education (Maktabkhooneh / Faradars / Coursera) ───────────────
-    from smart_dl.extractors.education import (
-        download_education_course,
-        is_education_url,
-    )
-
-    if is_education_url(url):
-        max_lessons = resolve_education_max_lessons(
-            all_lessons=args.all,
-            max_lessons=args.max_lessons,
-        )
-        return download_education_course(url, out_folder, max_lessons=max_lessons)
-
-    # ── Fallback ──────────────────────────────────────────────────────
-    from smart_dl.extractors.general import detect_platform
-
-    platform = detect_platform(url)
-    if platform:
-        info(f"Detected: {platform}")
-    fmt = quality_to_format(args.quality)
-    is_audio = args.audio_only
-    return download_with_features(
-        url,
-        out_folder,
-        fmt=fmt,
-        is_audio=is_audio,
-        clip=args.clip,
-        sponsorblock=args.sponsorblock,
-        audio_format=args.audio_format,
-        audio_quality=args.audio_quality,
-        output_format=args.format,
-        embed_metadata=args.embed_metadata,
-        embed_thumbnail=args.embed_thumbnail,
-        embed_subs=args.embed_subs,
-        geo_bypass=args.geo_bypass,
-        impersonate=args.impersonate,
-        output_template=args.output_template,
-        quiet=args.quiet,
-    )
+    return dispatch_url_download(url, args, out_folder)
 
 
 def _process_urls(urls: list[str], args, out_folder: Path) -> None:
@@ -664,14 +559,10 @@ def queue_download_item(item, out_folder) -> bool:
     """
     from pathlib import Path
 
-    from smart_dl.extractors.education import is_education_url
+    from smart_dl.extractors.registry import ExtractorKind, resolve_extractor_kind
     from smart_dl.ui import info
     from smart_dl.ui.progress import stop_event
-    from smart_dl.utils import (
-        is_aparat_url,
-        is_podcast_url,
-        quality_to_format,
-    )
+    from smart_dl.utils import quality_to_format
 
     url = item["url"]
     info(f"Queue #{item.get('id')}: {url[:80]}")
@@ -682,22 +573,32 @@ def queue_download_item(item, out_folder) -> bool:
         fmt = quality_to_format("best")
 
     out = Path(out_folder)
-    if is_education_url(url):
+    kind = resolve_extractor_kind(url)
+
+    if kind == ExtractorKind.EDUCATION:
         from smart_dl.extractors.education import download_education_course
 
-        return download_education_course(url, out, max_lessons=None)
-    if is_podcast_url(url):
+        return bool(download_education_course(url, out, max_lessons=None))
+    if kind == ExtractorKind.PODCAST:
         from smart_dl.extractors.podcast import download_podcast_url
 
         return bool(download_podcast_url(url, out))
-    if is_aparat_url(url):
+    if kind == ExtractorKind.APARAT:
         from smart_dl.extractors.aparat import download_aparat
 
-        return download_aparat(url, out)
+        return bool(download_aparat(url, out))
+    if kind == ExtractorKind.PERSIAN:
+        from smart_dl.extractors.persian import download_persian_platform
+
+        return bool(download_persian_platform(url, out))
+    if kind == ExtractorKind.COURSE:
+        from smart_dl.extractors.courses import download_course
+
+        return bool(download_course(url, out))
 
     from smart_dl.extractors.youtube import download_yt
 
-    return download_yt(url, out, fmt, is_audio)
+    return bool(download_yt(url, out, str(fmt), is_audio))
 
 
 def _tool_version(tool: str) -> str:

@@ -71,6 +71,12 @@ _EN = {
     "downloaded_count": "Downloaded",
     "failed_count": "Failed",
 
+    # Manager / history
+    "no_downloads": "No downloads found.",
+    "showing_downloads": "Showing",
+    "no_failed_downloads": "No failed downloads to clean up.",
+    "no_cleanup_files": "No files to clean up.",
+
     # Sections
     "analyzing_youtube": "Analyzing YouTube link",
     "analyzing_aparat": "Analyzing Aparat link",
@@ -424,6 +430,12 @@ _FA = {
     "select_episode": "شماره اپیزود #",
     "converting_to": "در حال تبدیل به",
     "downloaded": "دانلود شد:",
+
+    # Manager / history
+    "no_downloads": "دانلودی یافت نشد.",
+    "showing_downloads": "نمایش",
+    "no_failed_downloads": "دانلود ناموفقی برای پاک‌سازی نیست.",
+    "no_cleanup_files": "فایلی برای پاک‌سازی نیست.",
 
     # Errors
     "error": "خطا",
