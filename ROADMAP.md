@@ -11,7 +11,8 @@ Each item is designed for TDD and a weekly-sized PR.
 | R2 | Auto-update yt-dlp | Done — `--update-ytdlp` / `SMARTDL_UPDATE_YTDLP=1` |
 | R3 | Speed limit | Done — `--limit-rate` → yt-dlp `ratelimit` |
 | R4 | Clipboard grabber | Done — `--watch-clipboard` |
-| R6 | Channel auto-download | Partial — per-sub `auto_download` + `SMARTDL_SUBS_AUTODL=1` |
+| R5 | Download scheduler | Done — `--schedule` / `--at` |
+| R6 | Channel auto-download | Partial — `--subs-check`, per-sub `auto_download`, `SMARTDL_SUBS_AUTODL=1` |
 | R7 | Telegram notify | Done — config token/chat + `record_download` hook |
 | R8 | Config import/export | Done — `--export-config` / `--import-config` (secrets scrubbed) |
 | C-Auth | Cookie browser defaults | Done — `--set-cookie-browser` + diagnose |
