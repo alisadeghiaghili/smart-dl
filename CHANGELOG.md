@@ -23,6 +23,8 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 - Playlist download path no longer references unbound `fmt`/`is_audio` when using shared quality; returns explicit success/failure
 - Podcast non-interactive downloads accept default original format when no quality tuple is provided
 - Broad mypy cleanup: consistent `t()` fallback signatures, explicit returns, and safer dict/None handling
+- Documented `is_http_url` contract (accepts http/https/ftp) with unit tests
+- `.gitignore` covers local scratch dirs (`.tmp_pytest/`, `.tmp_*.py`)
 
 ---
 
