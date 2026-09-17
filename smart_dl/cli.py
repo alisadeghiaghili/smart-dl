@@ -19,6 +19,7 @@ from smart_dl.commands.downloads import (
 )
 from smart_dl.commands.history_cmds import handle_history as _handle_history
 from smart_dl.commands.queue_cmds import handle_queue as _handle_queue
+from smart_dl.commands.schedule_cmds import handle_schedule, handle_subs_check
 from smart_dl.commands.smart_mode import handle_smart_mode_flag
 from smart_dl.commands.subscriptions import (
     handle_check_updates,
@@ -248,6 +249,23 @@ def build_parser() -> argparse.ArgumentParser:
         type=str,
         default=None,
         help="Save Telegram chat id for completion notifications",
+    )
+    parser.add_argument(
+        "--schedule",
+        nargs="+",
+        metavar="CMD",
+        help="Scheduler: add URL | list | clear | remove ID | start [--once]",
+    )
+    parser.add_argument(
+        "--at",
+        type=str,
+        default=None,
+        help="Run time for --schedule add (HH:MM, ISO, +2h, or epoch)",
+    )
+    parser.add_argument(
+        "--subs-check",
+        action="store_true",
+        help="Run subscription update check once (Task Scheduler / cron friendly)",
     )
 
     # Batches & Queue
@@ -494,6 +512,15 @@ def run_cli() -> None:
             max_items=getattr(args, "watch_max", 10),
             enqueue=True,
         )
+        return
+    if getattr(args, "schedule", None):
+        cmds = list(args.schedule)
+        if getattr(args, "at", None):
+            cmds.extend(["--at", str(args.at)])
+        handle_schedule(cmds)
+        return
+    if getattr(args, "subs_check", False):
+        handle_subs_check(once=True)
         return
 
     if args.cookies_file:

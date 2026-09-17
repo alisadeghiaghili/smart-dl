@@ -155,6 +155,10 @@ smart-dl --import-config backup.json
 smart-dl --watch-clipboard --watch-max 5
 smart-dl --set-telegram-token BOT_TOKEN --set-telegram-chat CHAT_ID
 smart-dl --notify-test
+smart-dl --schedule add "https://youtube.com/watch?v=abc" --at 02:30
+smart-dl --schedule list
+smart-dl --schedule start --once
+smart-dl --subs-check
 
 # Video clipping
 smart-dl URL --clip 00:01:30-00:05:00
@@ -175,6 +179,17 @@ smart-dl URL --thumbnail --embed-thumbnail --embed-metadata
 smart-dl --batch urls.txt -o ~/Downloads
 
 # Queue management
+smart-dl --queue add URL1 URL2
+smart-dl --queue start
+
+# Night scheduler + unattended subscription check
+# Windows Task Scheduler example (PowerShell):
+#   smart-dl --schedule start --once
+#   smart-dl --subs-check
+smart-dl --schedule add "https://youtube.com/watch?v=abc" --at 02:30
+smart-dl --schedule start --once
+smart-dl --subs-check
+
 smart-dl --queue add URL1 URL2 URL3
 smart-dl --queue start
 smart-dl --queue pause
