@@ -178,8 +178,17 @@ def build_download_opts(
     impersonate=None,
     output_template=None,
     quiet=False,
+    rate_limit=None,
 ):
-    """Build yt-dlp options dict with all features."""
+    """Build yt-dlp options dict with all features.
+
+    Parameters
+    ----------
+    rate_limit : str or int or None, optional
+        Human rate (``2M``) or bytes/second. Applied as yt-dlp ``ratelimit``.
+    """
+    from smart_dl.core.rate_limit import parse_limit_rate
+
     prx = get_current_proxy()
     maxr = DL_SETTINGS["max_retries"]
     frags = DL_SETTINGS["fragments"]
@@ -201,6 +210,14 @@ def build_download_opts(
         "file_access_retries": 10,
         "extractor_retries": 10,
     }
+
+    if rate_limit is not None:
+        if isinstance(rate_limit, int):
+            opts["ratelimit"] = rate_limit
+        else:
+            parsed = parse_limit_rate(rate_limit)
+            if parsed:
+                opts["ratelimit"] = parsed
 
     # Output format
     if output_format:

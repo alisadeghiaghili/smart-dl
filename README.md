@@ -147,6 +147,7 @@ smart-dl "https://youtube.com/watch?v=abc123"
 # Quality and format (presets: worst, 360, 480, 720, 1080, 1440, 4k, 8k, best)
 smart-dl URL -q 1080 -o ~/Downloads
 smart-dl URL -q 4k --format mkv
+smart-dl URL --limit-rate 2M
 
 # Video clipping
 smart-dl URL --clip 00:01:30-00:05:00

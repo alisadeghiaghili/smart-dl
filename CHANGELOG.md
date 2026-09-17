@@ -9,6 +9,8 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 - CI quality gates: `mypy smart_dl` and pytest coverage (`fail_under=35`) now run on every push/PR
 - `pytest-cov` added to the `dev` extra
 - Extractor routing registry (`smart_dl.extractors.registry`) + shared CLI/queue dispatch module
+- `smart_dl.commands` package: subscriptions / queue / history / diagnose / smart-mode handlers extracted from `cli.py`
+- `--limit-rate 500K|2M` (yt-dlp `ratelimit`) for fair use on shared links
 - README capability matrix (native / partial / yt-dlp passthrough)
 - Subscription auto-download honors per-subscription `auto_download` flag (in addition to `SMARTDL_SUBS_AUTODL=1`)
 - Manager history messages use language keys when available

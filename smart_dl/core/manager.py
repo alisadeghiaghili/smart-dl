@@ -16,7 +16,7 @@ from smart_dl.core.history import (
     get_history_stats,
     search_history,
 )
-from smart_dl.ui import console, info, success
+from smart_dl.ui import console, info, success, warn
 
 try:
     from smart_dl.lang import t
@@ -206,11 +206,16 @@ def cleanup_downloads(dry_run: bool = False) -> int:
         return 0
 
     removed = 0
+    errors = 0
     for path in files_to_remove:
         try:
             os.remove(path)
             removed += 1
-        except OSError:
-            continue
-    success(f"Removed {removed}/{len(files_to_remove)} files")
+        except OSError as exc:
+            errors += 1
+            info(f"Could not remove {path}: {exc}")
+    if errors:
+        warn(f"Removed {removed}/{len(files_to_remove)} files ({errors} error(s))")
+    else:
+        success(f"Removed {removed}/{len(files_to_remove)} files")
     return removed
