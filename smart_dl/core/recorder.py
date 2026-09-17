@@ -75,7 +75,7 @@ def record_download(
             size = Path(path_str).stat().st_size
         except OSError:
             size = 0
-    return history_store.add_to_history(
+    row_id = history_store.add_to_history(
         url=url,
         title=title,
         platform=detect_platform_slug(url),
@@ -86,3 +86,16 @@ def record_download(
         status=HistoryStatus.COMPLETED if success else HistoryStatus.FAILED,
         error="" if success else (error or "unknown error"),
     )
+    try:
+        from smart_dl.core import telegram_notify
+
+        telegram_notify.notify_download_complete(
+            url=url,
+            success=success,
+            title=title,
+            error=error,
+        )
+    except Exception:
+        # Never fail history recording because notify is down.
+        pass
+    return row_id
