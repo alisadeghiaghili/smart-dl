@@ -119,8 +119,15 @@ def build_yt_opts(
     is_audio: bool = False,
     maxr: Optional[int] = None,
     frags: Optional[int] = None,
+    rate_limit: Optional[int] = None,
 ) -> Dict[str, Any]:
-    """Build standard yt-dlp download options."""
+    """Build standard yt-dlp download options.
+
+    Parameters
+    ----------
+    rate_limit : int, optional
+        Maximum download rate in bytes/second (yt-dlp ``ratelimit``).
+    """
     if maxr is None:
         maxr = DL_SETTINGS.get("max_retries", 3)
     if frags is None:
@@ -168,6 +175,8 @@ def build_yt_opts(
         cookie_file = get_cookies_file()
         if cookie_file:
             opts["cookiefile"] = cookie_file
+    if rate_limit:
+        opts["ratelimit"] = int(rate_limit)
 
     return opts
 

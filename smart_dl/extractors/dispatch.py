@@ -151,6 +151,9 @@ def _download_with_cli_flags(
     is_audio: bool,
 ) -> bool:
     """Call the shared download engine with CLI feature flags."""
+    from smart_dl.core.rate_limit import parse_limit_rate
+
+    rate_limit = parse_limit_rate(getattr(args, "limit_rate", None))
     return bool(
         download_fn(
             url,
@@ -169,5 +172,6 @@ def _download_with_cli_flags(
             impersonate=getattr(args, "impersonate", None),
             output_template=getattr(args, "output_template", None),
             quiet=bool(getattr(args, "quiet", False)),
+            rate_limit=rate_limit,
         )
     )

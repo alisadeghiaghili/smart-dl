@@ -16,7 +16,7 @@ Each item is designed for TDD and a weekly-sized PR.
 | ID | Feature | Why | Notes |
 |----|---------|-----|-------|
 | R2 | Auto-update yt-dlp on start (opt-in) | YouTube extractors break often | `SMARTDL_UPDATE_YTDLP=1` or `--update-ytdlp` |
-| R3 | Speed limit | Fair use on shared networks | `--limit-rate 2M` → yt-dlp `ratelimit` |
+| R3 | Speed limit | Fair use on shared networks | **Done** — `--limit-rate 2M` → yt-dlp `ratelimit` |
 | R4 | Clipboard watcher (link grabber) | One of the top IDM/JDownloader features | Optional dependency; poll clipboard for URLs |
 
 ## P1 — solid product features

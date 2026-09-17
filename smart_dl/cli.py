@@ -1,17 +1,50 @@
-"""CLI interface — argparse for non-interactive mode."""
+"""CLI interface — argparse for non-interactive mode.
+
+Command handlers live in :mod:`smart_dl.commands`; this module owns the
+parser surface and thin orchestration.
+"""
+
 from __future__ import annotations
 
 import argparse
-import os
 import sys
 from pathlib import Path
-from typing import Optional
 
 from smart_dl import VERSION
+from smart_dl.commands.diagnose import print_diagnostics as _print_diagnostics
+from smart_dl.commands.downloads import (
+    count_failure,
+    queue_download_item,
+    resolve_education_max_lessons,
+)
+from smart_dl.commands.history_cmds import handle_history as _handle_history
+from smart_dl.commands.queue_cmds import handle_queue as _handle_queue
+from smart_dl.commands.smart_mode import handle_smart_mode_flag
+from smart_dl.commands.subscriptions import (
+    handle_check_updates,
+    handle_my_subs,
+    handle_subscribe,
+    handle_unsubscribe,
+)
+from smart_dl.extractors.dispatch import dispatch_url_download
+
+__all__ = [
+    "build_parser",
+    "count_failure",
+    "queue_download_item",
+    "resolve_education_max_lessons",
+    "run_cli",
+]
 
 
-def build_parser():
-    """Build the argument parser with all features."""
+def build_parser() -> argparse.ArgumentParser:
+    """Build the argument parser with all features.
+
+    Returns
+    -------
+    argparse.ArgumentParser
+        Configured CLI parser.
+    """
     parser = argparse.ArgumentParser(
         prog="smart-dl",
         description="SmartDL — Resilient media downloader for unstable networks",
@@ -26,6 +59,7 @@ def build_parser():
             "  smart-dl URL --subtitles en,fa --embed-subs\n"
             "  smart-dl URL --thumbnail --embed-thumbnail\n"
             "  smart-dl URL --format mkv\n"
+            "  smart-dl URL --limit-rate 2M\n"
             "  smart-dl --batch urls.txt -o ~/Downloads\n"
             "  smart-dl --queue add URL1 URL2 && smart-dl --queue start\n"
             "  smart-dl --subscribe https://youtube.com/@channel\n"
@@ -35,414 +69,266 @@ def build_parser():
             "  smart-dl --theme catppuccin\n"
             "  smart-dl https://pixiv.net/artworks/123\n"
             "  smart-dl --torrent magnet:?xt=...\n"
-        )
+        ),
     )
 
-    # Positional
     parser.add_argument("urls", nargs="*", help="URL(s) to download")
 
     # Output
-    parser.add_argument("-o", "--output", type=str, default=None,
-                        help="Output directory (default: ~/Downloads/SmartDL)")
-    parser.add_argument("--output-template", type=str, default=None,
-                        help="Output filename template (yt-dlp format)")
+    parser.add_argument(
+        "-o",
+        "--output",
+        type=str,
+        default=None,
+        help="Output directory (default: ~/Downloads/SmartDL)",
+    )
+    parser.add_argument(
+        "--output-template",
+        type=str,
+        default=None,
+        help="Output filename template (yt-dlp format)",
+    )
 
     # Quality & Format
-    parser.add_argument("-q", "--quality", type=str, default="best",
-                        help="Quality: best, worst, 720, 1080, 4k, 8k (default: best)")
-    parser.add_argument("--format", type=str, default=None,
-                        choices=["mp4", "mkv", "webm", "avi", "mov"],
-                        help="Output container format")
-    parser.add_argument("--clip", type=str, default=None,
-                        help="Download segment: START-END (e.g., 00:01:30-00:05:00)")
+    parser.add_argument(
+        "-q",
+        "--quality",
+        type=str,
+        default="best",
+        help="Quality: best, worst, 720, 1080, 4k, 8k (default: best)",
+    )
+    parser.add_argument(
+        "--format",
+        type=str,
+        default=None,
+        choices=["mp4", "mkv", "webm", "avi", "mov"],
+        help="Output container format",
+    )
+    parser.add_argument(
+        "--clip",
+        type=str,
+        default=None,
+        help="Download segment: START-END (e.g., 00:01:30-00:05:00)",
+    )
 
     # Audio
-    parser.add_argument("--audio-only", action="store_true",
-                        help="Extract audio only")
-    parser.add_argument("--audio-format", type=str, default="mp3",
-                        choices=["mp3", "m4a", "opus", "flac", "wav", "vorbis"],
-                        help="Audio format (default: mp3)")
-    parser.add_argument("--audio-quality", type=str, default="192",
-                        help="Audio bitrate in kbps (default: 192)")
+    parser.add_argument("--audio-only", action="store_true", help="Extract audio only")
+    parser.add_argument(
+        "--audio-format",
+        type=str,
+        default="mp3",
+        choices=["mp3", "m4a", "opus", "flac", "wav", "vorbis"],
+        help="Audio format (default: mp3)",
+    )
+    parser.add_argument(
+        "--audio-quality",
+        type=str,
+        default="192",
+        help="Audio bitrate in kbps (default: 192)",
+    )
 
     # Subtitles
-    parser.add_argument("--subtitles", type=str, default=None,
-                        help="Download subtitles (e.g., en,fa or all)")
-    parser.add_argument("--list-subs", action="store_true",
-                        help="List available subtitles")
-    parser.add_argument("--embed-subs", action="store_true",
-                        help="Embed subtitles in video")
+    parser.add_argument(
+        "--subtitles",
+        type=str,
+        default=None,
+        help="Download subtitles (e.g., en,fa or all)",
+    )
+    parser.add_argument("--list-subs", action="store_true", help="List available subtitles")
+    parser.add_argument(
+        "--embed-subs",
+        action="store_true",
+        help="Embed subtitles in video",
+    )
 
     # Thumbnails & Metadata
-    parser.add_argument("--thumbnail", action="store_true",
-                        help="Download thumbnail")
-    parser.add_argument("--embed-thumbnail", action="store_true",
-                        help="Embed thumbnail in video")
-    parser.add_argument("--embed-metadata", action="store_true",
-                        help="Embed metadata (title, artist, etc.)")
+    parser.add_argument("--thumbnail", action="store_true", help="Download thumbnail")
+    parser.add_argument(
+        "--embed-thumbnail",
+        action="store_true",
+        help="Embed thumbnail in video",
+    )
+    parser.add_argument(
+        "--embed-metadata",
+        action="store_true",
+        help="Embed metadata (title, artist, etc.)",
+    )
 
     # Features
-    parser.add_argument("--sponsorblock", action="store_true",
-                        help="Skip sponsor segments (SponsorBlock)")
-    parser.add_argument("--geo-bypass", type=str, default=None,
-                        help="Bypass geo-restriction (country code, e.g., US)")
-    parser.add_argument("--impersonate", type=str, default=None,
-                        help="Impersonate browser (chrome, firefox, safari)")
-    parser.add_argument("--proxy", type=str, default=None,
-                        help="Proxy URL (http://host:port or socks5://host:port)")
+    parser.add_argument(
+        "--sponsorblock",
+        action="store_true",
+        help="Skip sponsor segments (SponsorBlock)",
+    )
+    parser.add_argument(
+        "--geo-bypass",
+        type=str,
+        default=None,
+        help="Bypass geo-restriction (country code, e.g., US)",
+    )
+    parser.add_argument(
+        "--impersonate",
+        type=str,
+        default=None,
+        help="Impersonate browser (chrome, firefox, safari)",
+    )
+    parser.add_argument(
+        "--proxy",
+        type=str,
+        default=None,
+        help="Proxy URL (http://host:port or socks5://host:port)",
+    )
+    parser.add_argument(
+        "--limit-rate",
+        type=str,
+        default=None,
+        help="Max download rate (e.g. 500K, 2M) — fair use on shared links",
+    )
 
     # Batches & Queue
-    parser.add_argument("--batch", type=str, default=None,
-                        help="File containing URLs (one per line)")
-    parser.add_argument("--concurrent", type=int, default=1,
-                        help="Number of concurrent downloads (default: 1)")
+    parser.add_argument(
+        "--batch",
+        type=str,
+        default=None,
+        help="File containing URLs (one per line)",
+    )
+    parser.add_argument(
+        "--concurrent",
+        type=int,
+        default=1,
+        help="Number of concurrent downloads (default: 1)",
+    )
 
-    # Queue management
-    parser.add_argument("--queue", nargs="+", metavar="CMD",
-                        help="Queue commands: add URL..., start, pause, resume, list, clear")
-
-    # History
-    parser.add_argument("--history", nargs="+", metavar="CMD",
-                        help="History commands: list, search QUERY, stats, re-download ID")
-    parser.add_argument("--list", action="store_true",
-                        help="List download history")
-    parser.add_argument("--sort", type=str, default="date",
-                        choices=["date", "name", "size"],
-                        help="Sort order for --list")
-    parser.add_argument("--filter", type=str, default=None,
-                        help="Filter by platform (youtube, aparat, etc.)")
-    parser.add_argument("--export", type=str, default=None,
-                        help="Export history to JSON file")
-    parser.add_argument("--cleanup", action="store_true",
-                        help="Remove failed/incomplete downloads")
-    parser.add_argument("--dry-run", action="store_true",
-                        help="Show what would be done (with --cleanup)")
+    parser.add_argument(
+        "--queue",
+        nargs="+",
+        metavar="CMD",
+        help="Queue commands: add URL..., start, pause, resume, list, clear",
+    )
+    parser.add_argument(
+        "--history",
+        nargs="+",
+        metavar="CMD",
+        help="History commands: list, search QUERY, stats, re-download ID",
+    )
+    parser.add_argument("--list", action="store_true", help="List download history")
+    parser.add_argument(
+        "--sort",
+        type=str,
+        default="date",
+        choices=["date", "name", "size"],
+        help="Sort order for --list",
+    )
+    parser.add_argument(
+        "--filter",
+        type=str,
+        default=None,
+        help="Filter by platform (youtube, aparat, etc.)",
+    )
+    parser.add_argument("--export", type=str, default=None, help="Export history to JSON file")
+    parser.add_argument(
+        "--cleanup",
+        action="store_true",
+        help="Remove failed/incomplete downloads",
+    )
+    parser.add_argument(
+        "--dry-run",
+        action="store_true",
+        help="Show what would be done (with --cleanup)",
+    )
 
     # Subscriptions
-    parser.add_argument("--subscribe", type=str, default=None,
-                        help="Subscribe to channel/playlist URL")
-    parser.add_argument("--unsubscribe", type=int, default=None,
-                        help="Unsubscribe by ID")
-    parser.add_argument("--my-subs", action="store_true",
-                        help="List your subscriptions")
-    parser.add_argument("--check-updates", action="store_true",
-                        help="Check for new uploads from subscriptions")
+    parser.add_argument("--subscribe", type=str, default=None, help="Subscribe to channel/playlist URL")
+    parser.add_argument("--unsubscribe", type=int, default=None, help="Unsubscribe by ID")
+    parser.add_argument("--my-subs", action="store_true", help="List your subscriptions")
+    parser.add_argument(
+        "--check-updates",
+        action="store_true",
+        help="Check for new uploads from subscriptions",
+    )
 
     # Smart Mode
-    parser.add_argument("--smart-mode", type=str, default=None,
-                        choices=["on", "off", "config"],
-                        help="Smart Mode: on/off/config (interactive settings)")
-    parser.add_argument("--default-quality", type=str, default=None,
-                        help="Set default quality for Smart Mode")
-    parser.add_argument("--default-format", type=str, default=None,
-                        help="Set default format for Smart Mode")
+    parser.add_argument(
+        "--smart-mode",
+        type=str,
+        default=None,
+        choices=["on", "off", "config"],
+        help="Smart Mode: on/off/config (interactive settings)",
+    )
+    parser.add_argument(
+        "--default-quality",
+        type=str,
+        default=None,
+        help="Set default quality for Smart Mode",
+    )
+    parser.add_argument(
+        "--default-format",
+        type=str,
+        default=None,
+        help="Set default format for Smart Mode",
+    )
 
-    # Gallery
-    parser.add_argument("--gallery", action="store_true",
-                        help="Force gallery mode (image download)")
+    parser.add_argument("--gallery", action="store_true", help="Force gallery mode (image download)")
+    parser.add_argument(
+        "--all",
+        action="store_true",
+        help="Download every education lesson (no cap; default is capped)",
+    )
+    parser.add_argument(
+        "--max-lessons",
+        type=int,
+        default=None,
+        help="Cap number of education course lessons (default: 20)",
+    )
+    parser.add_argument(
+        "--all-episodes",
+        action="store_true",
+        help="Download every episode from a podcast RSS feed",
+    )
+    parser.add_argument(
+        "--max-episodes",
+        type=int,
+        default=None,
+        help="Cap number of podcast episodes to download",
+    )
+    parser.add_argument("--torrent", type=str, default=None, help="Download torrent/magnet link")
 
-    # Education courses
-    parser.add_argument("--all", action="store_true",
-                        help="Download every education lesson (no cap; default is capped)")
-    parser.add_argument("--max-lessons", type=int, default=None,
-                        help="Cap number of education course lessons (default: 20)")
-
-    # Podcasts
-    parser.add_argument("--all-episodes", action="store_true",
-                        help="Download every episode from a podcast RSS feed")
-    parser.add_argument("--max-episodes", type=int, default=None,
-                        help="Cap number of podcast episodes to download")
-
-    # Torrent
-    parser.add_argument("--torrent", type=str, default=None,
-                        help="Download torrent/magnet link")
-
-    # Settings
-    parser.add_argument("--lang", type=str, choices=["en", "fa"], default=None,
-                        help="Interface language")
-    parser.add_argument("--cookies-file", type=str, default=None,
-                        help="Netscape cookies.txt path (used when no browser cookie source)")
-    parser.add_argument("--theme", type=str, default=None,
-                        help="CLI theme (dracula, catppuccin, one-dark, etc.)")
-    parser.add_argument("--list-themes", action="store_true",
-                        help="List available themes")
-    parser.add_argument("--portable", action="store_true",
-                        help="Enable portable mode")
-    parser.add_argument("--quiet", action="store_true",
-                        help="Quiet mode (no UI output)")
-    parser.add_argument("--log", type=str, default=None,
-                        help="Log to file")
+    parser.add_argument("--lang", type=str, choices=["en", "fa"], default=None, help="Interface language")
+    parser.add_argument(
+        "--cookies-file",
+        type=str,
+        default=None,
+        help="Netscape cookies.txt path (used when no browser cookie source)",
+    )
+    parser.add_argument(
+        "--theme",
+        type=str,
+        default=None,
+        help="CLI theme (dracula, catppuccin, one-dark, etc.)",
+    )
+    parser.add_argument("--list-themes", action="store_true", help="List available themes")
+    parser.add_argument("--portable", action="store_true", help="Enable portable mode")
+    parser.add_argument("--quiet", action="store_true", help="Quiet mode (no UI output)")
+    parser.add_argument("--log", type=str, default=None, help="Log to file")
 
     parser.add_argument("--version", action="version", version=f"SmartDL v{VERSION}")
+    parser.add_argument(
+        "--diagnose",
+        action="store_true",
+        help="Print environment diagnostics (versions, proxy, paths) and exit",
+    )
 
-    parser.add_argument("--diagnose", action="store_true",
-                        help="Print environment diagnostics (versions, proxy, paths) and exit")
-
-    # Fix conflicting --list-subs
     parser.set_defaults(list_subs=False)
-
     return parser
 
 
-def run_cli():
-    """Run SmartDL in CLI mode."""
-    parser = build_parser()
-    args = parser.parse_args()
-
-    # ─── Theme ────────────────────────────────────────────────────────────────
-    if args.theme:
-        from smart_dl.ui.themes import set_theme
-        set_theme(args.theme)
-
-    if args.list_themes:
-        from smart_dl.ui import console
-        from smart_dl.ui.themes import list_themes
-        console.print("[bold cyan]Available Themes:[/bold cyan]")
-        for key, name in list_themes():
-            console.print(f"  [green]{key:20s}[/green] {name}")
-        return
-
-    if args.diagnose:
-        _print_diagnostics()
-        return
-
-    # ─── Language ─────────────────────────────────────────────────────────────
-    if args.lang:
-        from smart_dl.lang import set_lang
-        set_lang(args.lang)
-
-    # ─── Cookies file ─────────────────────────────────────────────────────────
-    if args.cookies_file:
-        from smart_dl.core.cookies_file import load_netscape_cookies, set_cookies_file
-
-        set_cookies_file(args.cookies_file)
-        ok, msg = load_netscape_cookies(args.cookies_file)
-        if ok:
-            from smart_dl.ui import success
-            success("Cookies: " + msg)
-        else:
-            from smart_dl.ui import error
-            error("Cookies file: " + msg)
-            sys.exit(1)
-
-    # ─── Logging ──────────────────────────────────────────────────────────────
-    if args.log:
-        from smart_dl.core.logging import setup_logging
-        setup_logging(args.log, verbose=not args.quiet)
-
-    # ─── Proxy ────────────────────────────────────────────────────────────────
-    if args.proxy:
-        from smart_dl.core.proxy import apply_proxy
-        apply_proxy(args.proxy)
-
-    # ─── Portable mode ────────────────────────────────────────────────────────
-    if args.portable:
-        from smart_dl.core.portable import enable_portable_mode
-        enable_portable_mode()
-        from smart_dl.ui import success
-        success("Portable mode enabled 🎒.")
-
-    # ─── Smart Mode ───────────────────────────────────────────────────────────
-    if args.smart_mode:
-        from smart_dl.core.downloader import get_smart_mode, interactive_smart_mode, save_smart_mode
-        if args.smart_mode == "config":
-            interactive_smart_mode()
-            return
-        prefs = get_smart_mode()
-        prefs["enabled"] = args.smart_mode == "on"
-        save_smart_mode(prefs)
-        from smart_dl.ui import success, warn
-        state = 'enabled 🧠' if prefs['enabled'] else 'disabled 😴'
-        if prefs['enabled']:
-            success(f"Smart Mode {state}.")
-        else:
-            warn(f"Smart Mode {state}.")
-        if args.default_quality:
-            prefs["quality"] = args.default_quality
-            save_smart_mode(prefs)
-        if args.default_format:
-            prefs["format"] = args.default_format
-            save_smart_mode(prefs)
-        if not args.urls:
-            return
-
-    # ─── Subscriptions ────────────────────────────────────────────────────────
-    if args.subscribe:
-        from smart_dl.core.subscriptions import add_subscription, init_db
-        init_db()
-        sub_id = add_subscription(args.subscribe)
-        from smart_dl.ui import success
-        success(f"Subscribed! 🎉 (ID: {sub_id})")
-        return
-
-    if args.unsubscribe:
-        from smart_dl.core.subscriptions import init_db, remove_subscription
-        init_db()
-        remove_subscription(args.unsubscribe)
-        from smart_dl.ui import success
-        success(f"Unsubscribed from ID {args.unsubscribe}.")
-        return
-
-    if args.check_updates:
-        import os
-
-        from smart_dl.core import sub_updates
-        from smart_dl.core.subscriptions import get_subscriptions, init_db
-
-        init_db()
-        if not get_subscriptions():
-            from smart_dl.ui import info
-
-            info("No subscriptions found.")
-            return
-
-        from smart_dl.ui import error, info, success
-        from smart_dl.ui.progress import stop_event
-
-        result = sub_updates.check_all_subscriptions()
-        info(f"Checked {result['checked']} subscription(s).")
-        if result["total_new"] == 0:
-            success("No new uploads.")
-            return
-
-        success(f"Found {result['total_new']} new upload(s):")
-        for upload in result["new_uploads"]:
-            info(f"  {upload.video_id}  {upload.title[:60]}  {upload.url[:70]}")
-
-        # Auto-download when env flag is set OR the subscription opted in.
-        auto_env = os.environ.get("SMARTDL_SUBS_AUTODL") == "1"
-        sub_auto_ids = {
-            int(sub["id"])
-            for sub in get_subscriptions()
-            if int(sub.get("auto_download") or 0) == 1
-        }
-        pending = [
-            up
-            for up in result["new_uploads"]
-            if auto_env or int(up.get("sub_id") or 0) in sub_auto_ids
-        ]
-        if not pending:
-            return
-
-        from pathlib import Path
-
-        from smart_dl.core.paths import get_default_download_dir
-        from smart_dl.core.sub_updates import record_subscription_download
-        from smart_dl.extractors.youtube import download_yt
-
-        out = get_default_download_dir()
-        out.mkdir(parents=True, exist_ok=True)
-        for upload in pending:
-            if stop_event.is_set():
-                break
-            info(f"Downloading {upload.title[:50]}...")
-            ok = download_yt(upload.url, Path(out), "bestvideo+bestaudio/best", False)
-            if ok:
-                record_subscription_download(
-                    int(upload["sub_id"]),
-                    upload.url,
-                    title=upload.title,
-                    video_id=upload.video_id,
-                )
-            else:
-                error(f"Failed: {upload.title[:50]}")
-        return
-
-    if args.my_subs:
-        from smart_dl.core.subscriptions import get_subscription_stats, get_subscriptions, init_db
-        init_db()
-        subs = get_subscriptions()
-        stats = get_subscription_stats()
-        if not subs:
-            from smart_dl.ui import info
-            info("No subscriptions found.")
-            return
-        from rich import box
-        from rich.table import Table
-        t = Table(box=box.ROUNDED, show_header=True, border_style="cyan")
-        t.add_column("#", width=5)
-        t.add_column("Name", max_width=30)
-        t.add_column("URL", max_width=50)
-        t.add_column("Platform", width=10)
-        t.add_column("Auto-DL", width=8)
-        for sub in subs:
-            t.add_row(str(sub["id"]), sub["name"] or "?", sub["url"][:50], sub["platform"], "yes" if sub["auto_download"] else "no")
-        from smart_dl.ui import console
-        console.print(t)
-        console.print(f"\n[bold]{stats['active']}[/bold] active subscriptions, [bold]{stats['videos_downloaded']}[/bold] videos downloaded 📥")
-        return
-
-    # ─── Queue ────────────────────────────────────────────────────────────────
-    if args.queue:
-        _handle_queue(args.queue)
-        return
-
-    # ─── History ──────────────────────────────────────────────────────────────
-    if args.history:
-        _handle_history(args.history)
-        return
-
-    if args.list:
-        from smart_dl.core.manager import list_downloads
-        list_downloads(sort_by=args.sort, filter_by=args.filter)
-        return
-
-    if args.export:
-        from smart_dl.core.manager import export_downloads
-        export_downloads(args.export)
-        return
-
-    if args.cleanup:
-        from smart_dl.core.manager import cleanup_downloads
-        cleanup_downloads(dry_run=args.dry_run)
-        return
-
-    # ─── Collect URLs ─────────────────────────────────────────────────────────
-    urls = list(args.urls)
-    if args.batch:
-        try:
-            with open(args.batch, "r", encoding="utf-8") as f:
-                for line in f:
-                    line = line.strip()
-                    if line and not line.startswith("#"):
-                        urls.append(line)
-        except FileNotFoundError:
-            print(f"Error: Batch file not found: {args.batch}")
-            sys.exit(1)
-
-    if args.torrent:
-        urls.append(args.torrent)
-
-    if not urls:
-        parser.print_help()
-        sys.exit(0)
-
-    # ─── Output directory ─────────────────────────────────────────────────────
-    from smart_dl.core.paths import get_default_download_dir
-
-    out_folder = Path(args.output) if args.output else get_default_download_dir()
-    try:
-        out_folder.mkdir(parents=True, exist_ok=True)
-    except OSError as exc:
-        print(f"Error: cannot create output directory {out_folder}: {exc}", file=sys.stderr)
-        sys.exit(1)
-
-    _process_urls(urls, args, out_folder)
-
-
 def _download_single_url(url: str, args, out_folder: Path) -> bool:
-    """Dispatch and download a single URL through appropriate extractor.
-
-    Media routing lives in :mod:`smart_dl.extractors.dispatch` (registry).
-    This function only handles CLI-only pre-steps (subtitles/thumbnail).
-    """
-    from smart_dl.extractors.dispatch import dispatch_url_download
+    """Dispatch one URL; CLI-only pre-steps (subtitles/thumbnail) first."""
     from smart_dl.extractors.subtitles import (
         download_subtitles_for_video,
         list_subtitles,
     )
 
-    # ── List subtitles ────────────────────────────────────────────────
     if args.list_subs:
         title, subs, auto_subs = list_subtitles(url)
         if title:
@@ -457,16 +343,14 @@ def _download_single_url(url: str, args, out_folder: Path) -> bool:
                     print(f"  - {lang}")
         return True
 
-    # ── Subtitles download ────────────────────────────────────────────
     if args.subtitles:
         if args.subtitles.lower() == "all":
             download_subtitles_for_video(url, out_folder, langs=None, embed=args.embed_subs)
         else:
-            langs = [l.strip() for l in args.subtitles.split(",")]
+            langs = [part.strip() for part in args.subtitles.split(",")]
             download_subtitles_for_video(url, out_folder, langs=langs, embed=args.embed_subs)
         return True
 
-    # ── Thumbnail ─────────────────────────────────────────────────────
     if args.thumbnail:
         from smart_dl.extractors.youtube import download_thumbnail
 
@@ -476,411 +360,170 @@ def _download_single_url(url: str, args, out_folder: Path) -> bool:
     return dispatch_url_download(url, args, out_folder)
 
 
-def _process_urls(urls: list[str], args, out_folder: Path) -> None:
-    """Process all URLs passed to CLI."""
-    from smart_dl.ui import error, success, warn
+def run_cli() -> None:
+    """Run SmartDL in CLI mode.
+
+    Returns
+    -------
+    None
+        Exits the process on fatal CLI errors.
+    """
+    parser = build_parser()
+    args = parser.parse_args()
+
+    if args.theme:
+        from smart_dl.ui.themes import set_theme
+
+        set_theme(args.theme)
+
+    if args.list_themes:
+        from smart_dl.ui import console
+        from smart_dl.ui.themes import list_themes
+
+        console.print("[bold cyan]Available Themes:[/bold cyan]")
+        for key, name in list_themes():
+            console.print(f"  [green]{key:20s}[/green] {name}")
+        return
+
+    if args.diagnose:
+        print_diagnostics_safe()
+        return
+
+    if args.lang:
+        from smart_dl.lang import set_lang
+
+        set_lang(args.lang)
+
+    if args.cookies_file:
+        from smart_dl.core.cookies_file import load_netscape_cookies, set_cookies_file
+        from smart_dl.ui import error, success
+
+        set_cookies_file(args.cookies_file)
+        ok, msg = load_netscape_cookies(args.cookies_file)
+        if ok:
+            success("Cookies: " + msg)
+        else:
+            error("Cookies file: " + msg)
+            sys.exit(1)
+
+    if args.log:
+        from smart_dl.core.logging import setup_logging
+
+        setup_logging(args.log, verbose=not args.quiet)
+
+    if args.proxy:
+        from smart_dl.core.proxy import apply_proxy
+
+        apply_proxy(args.proxy)
+
+    if args.portable:
+        from smart_dl.core.portable import enable_portable_mode
+        from smart_dl.ui import success
+
+        enable_portable_mode()
+        success("Portable mode enabled 🎒.")
+
+    if not handle_smart_mode_flag(
+        args.smart_mode,
+        default_quality=args.default_quality,
+        default_format=args.default_format,
+    ):
+        return
+    if args.smart_mode and not args.urls:
+        return
+
+    if args.subscribe:
+        handle_subscribe(args.subscribe)
+        return
+    if args.unsubscribe:
+        handle_unsubscribe(args.unsubscribe)
+        return
+    if args.check_updates:
+        handle_check_updates()
+        return
+    if args.my_subs:
+        handle_my_subs()
+        return
+
+    if args.queue:
+        _handle_queue(args.queue, queue_download_item)
+        return
+    if args.history:
+        _handle_history(args.history)
+        return
+    if args.list:
+        from smart_dl.core.manager import list_downloads
+
+        list_downloads(sort_by=args.sort, filter_by=args.filter)
+        return
+    if args.export:
+        from smart_dl.core.manager import export_downloads
+
+        export_downloads(args.export)
+        return
+    if args.cleanup:
+        from smart_dl.core.manager import cleanup_downloads
+
+        cleanup_downloads(dry_run=args.dry_run)
+        return
+
+    urls = list(args.urls)
+    if args.batch:
+        try:
+            with open(args.batch, "r", encoding="utf-8") as handle:
+                for line in handle:
+                    line = line.strip()
+                    if line and not line.startswith("#"):
+                        urls.append(line)
+        except FileNotFoundError:
+            print(f"Error: Batch file not found: {args.batch}")
+            sys.exit(1)
+
+    if args.torrent:
+        urls.append(args.torrent)
+
+    if not urls:
+        parser.print_help()
+        sys.exit(0)
+
+    from smart_dl.core.paths import get_default_download_dir
+
+    out_folder = Path(args.output) if args.output else get_default_download_dir()
+    try:
+        out_folder.mkdir(parents=True, exist_ok=True)
+    except OSError as exc:
+        print(f"Error: cannot create output directory {out_folder}: {exc}", file=sys.stderr)
+        sys.exit(1)
 
     failures = 0
     for url in urls:
         try:
-            ok = _download_single_url(url, args, out_folder)
-            if not ok:
+            if not _download_single_url(url, args, out_folder):
                 failures += 1
         except KeyboardInterrupt:
+            from smart_dl.ui import warn
+
             warn("Interrupted.")
             break
-        except Exception as e:
-            error(f"Error: {str(e)[:200]}")
+        except Exception as exc:  # noqa: BLE001
+            from smart_dl.ui import error
+
+            error(f"Error: {str(exc)[:200]}")
             failures += 1
 
     if failures:
+        from smart_dl.ui import error
+
         error(f"Finished with {failures} failed download(s).")
         sys.exit(1)
+    from smart_dl.ui import success
+
     success("All done!")
 
 
-def count_failure(ok) -> int:
-    """Return 1 when a download handler reports failure, else 0.
-
-    Parameters
-    ----------
-    ok : bool or None
-        Handler return value. ``None`` is treated as failure (legacy
-        handlers that did not return a status).
-
-    Returns
-    -------
-    int
-        0 or 1.
-    """
-    return 0 if ok is True else 1
-
-
-def resolve_education_max_lessons(
-    *,
-    all_lessons: bool,
-    max_lessons: Optional[int],
-) -> Optional[int]:
-    """Resolve the education lesson cap from CLI flags.
-
-    Parameters
-    ----------
-    all_lessons : bool
-        ``--all`` was passed (remove the cap).
-    max_lessons : int, optional
-        Explicit ``--max-lessons`` value.
-
-    Returns
-    -------
-    int or None
-        ``None`` means unlimited; otherwise a non-negative cap.
-    """
-    if all_lessons:
-        return None
-    if max_lessons is not None:
-        return max(0, int(max_lessons))
-    return 20
-
-
-def queue_download_item(item, out_folder) -> bool:
-    """Download one queue row without opening interactive menus.
-
-    Parameters
-    ----------
-    item : dict
-        Queue row with ``url``, ``format_str``, ``is_audio``.
-    out_folder : pathlib.Path
-        Destination directory.
-
-    Returns
-    -------
-    bool
-        ``True`` on success.
-    """
-    from pathlib import Path
-
-    from smart_dl.extractors.registry import ExtractorKind, resolve_extractor_kind
-    from smart_dl.ui import info
-    from smart_dl.ui.progress import stop_event
-    from smart_dl.utils import quality_to_format
-
-    url = item["url"]
-    info(f"Queue #{item.get('id')}: {url[:80]}")
-    stop_event.clear()
-    fmt = item.get("format_str") or "best"
-    is_audio = bool(item.get("is_audio"))
-    if fmt in ("best", "", None):
-        fmt = quality_to_format("best")
-
-    out = Path(out_folder)
-    kind = resolve_extractor_kind(url)
-
-    if kind == ExtractorKind.EDUCATION:
-        from smart_dl.extractors.education import download_education_course
-
-        return bool(download_education_course(url, out, max_lessons=None))
-    if kind == ExtractorKind.PODCAST:
-        from smart_dl.extractors.podcast import download_podcast_url
-
-        return bool(download_podcast_url(url, out))
-    if kind == ExtractorKind.APARAT:
-        from smart_dl.extractors.aparat import download_aparat
-
-        return bool(download_aparat(url, out))
-    if kind == ExtractorKind.PERSIAN:
-        from smart_dl.extractors.persian import download_persian_platform
-
-        return bool(download_persian_platform(url, out))
-    if kind == ExtractorKind.COURSE:
-        from smart_dl.extractors.courses import download_course
-
-        return bool(download_course(url, out))
-
-    from smart_dl.extractors.youtube import download_yt
-
-    return bool(download_yt(url, out, str(fmt), is_audio))
-
-
-def _tool_version(tool: str) -> str:
-    """Return the version string of `tool` if it's on PATH, else "not found"."""
-    import shutil
-    import subprocess
-    path = shutil.which(tool)
-    if not path:
-        return "not found"
-    try:
-        out = subprocess.run(
-            [tool, "--version"], capture_output=True, text=True, timeout=5
-        )
-        first = (out.stdout or out.stderr).strip().splitlines()
-        # Take only the first non-empty line to keep output compact
-        for line in first:
-            line = line.strip()
-            if line:
-                return line[:120]
-        return "?"
-    except Exception as e:
-        return f"error: {e!r}"
-
-
-def _pip_show(pkg: str) -> str:
-    """Return `pip show pkg` Version line, or "not installed"."""
-    import subprocess
-    try:
-        out = subprocess.run(
-            [sys.executable, "-m", "pip", "show", pkg],
-            capture_output=True, text=True, timeout=10
-        )
-    except Exception as e:
-        return f"error: {e!r}"
-    if out.returncode != 0:
-        return "not installed"
-    for line in out.stdout.splitlines():
-        if line.startswith("Version:"):
-            return line.split(":", 1)[1].strip()
-    return "installed (no Version line)"
-
-
-def _print_diagnostics() -> None:
-    """Print a single diagnostic block: versions, proxy state, paths.
-
-    Lets the user self-diagnose download issues in seconds without
-    digging through toolchain versions manually.
-    """
-    from smart_dl.core.portable import get_data_dir, is_portable
-    from smart_dl.core.proxy import peek_current_proxy
-
-    lines: list[str] = []
-    lines.append(f"  [bold cyan]SmartDL v{VERSION}[/bold cyan]  —  diagnostics")
-    lines.append("")
-    lines.append(f"  Python      : {sys.version.split()[0]}")
-    lines.append(f"  Python exe  : {sys.executable}")
-    lines.append(f"  Platform    : {sys.platform}")
-    lines.append("")
-    lines.append("  --- Python packages ---")
-    lines.append(f"  yt-dlp      : {_pip_show('yt-dlp')}")
-    lines.append(f"  rich        : {_pip_show('rich')}")
-    lines.append(f"  requests    : {_pip_show('requests')}")
-    lines.append("")
-    lines.append("  --- External tools ---")
-    lines.append(f"  ffmpeg      : {_tool_version('ffmpeg')}")
-    lines.append(f"  node        : {_tool_version('node')}")
-    lines.append(f"  aria2c      : {_tool_version('aria2c')}")
-    lines.append(f"  winget      : {_tool_version('winget')}")
-    lines.append("")
-    lines.append("  --- Proxy state ---")
-    proxy = peek_current_proxy()
-    lines.append(f"  Active      : {proxy if proxy else '[dim]none[/dim]'}")
-    # Show each proxy env var that is set
-    env_proxies = [
-        (k, os.environ.get(k, "")) for k in (
-            "HTTP_PROXY", "HTTPS_PROXY", "http_proxy", "https_proxy",
-            "ALL_PROXY", "all_proxy",
-            "SOCKS5_PROXY", "socks5_proxy", "SOCKS_PROXY", "socks_proxy",
-        ) if os.environ.get(k)
-    ]
-    if env_proxies:
-        lines.append("  Env vars    :")
-        for k, v in env_proxies:
-            lines.append(f"    {k} = {v}")
-    else:
-        lines.append("  Env vars    : [dim]none[/dim]")
-    lines.append("")
-    lines.append("  --- Browser cookies ---")
-    from smart_dl.core.cookie_diag import cookie_diagnose_report
-
-    cookie_report = cookie_diagnose_report()
-    if not cookie_report["configured"]:
-        lines.append("  Browser     : [dim]not set[/dim] (press c at the URL prompt)")
-    else:
-        lines.append(f"  Browser     : {cookie_report['browser']}")
-        if cookie_report["extract_ok"]:
-            lines.append(f"  Cookies     : {cookie_report['total_cookies']} total")
-            by_domain = cookie_report.get("by_domain") or {}
-            if isinstance(by_domain, dict):
-                for domain, count in by_domain.items():
-                    mark = "[green]ok[/green]" if count else "[dim]0[/dim]"
-                    lines.append(f"    {domain:20s} {count}  {mark}")
-        else:
-            lines.append(f"  Extract     : [red]FAILED[/red] {cookie_report['error']}")
-    from smart_dl.core.cookies_file import get_cookies_file
-
-    cookie_path = get_cookies_file()
-    lines.append(f"  cookies.txt : {cookie_path or '[dim]not set[/dim]'}")
-    lines.append("")
-    lines.append("  --- Paths ---")
-    lines.append(f"  Portable    : {is_portable()}")
-    lines.append(f"  Data dir    : {get_data_dir()}")
-    lines.append(f"  Config      : {get_data_dir() / 'config.json'}")
-    lines.append("")
-    lines.append("  --- Network test ---")
-    try:
-        import requests
-        r = requests.head("https://www.youtube.com", timeout=5, allow_redirects=True)
-        lines.append(f"  youtube.com : HTTP {r.status_code} (OK)")
-    except Exception as e:
-        lines.append(f"  youtube.com : FAILED ({type(e).__name__}: {str(e)[:80]})")
-
-    from rich.console import Console
-    from rich.panel import Panel
-    c = Console()
-    c.print()
-    c.print(Panel("\n".join(lines), title="[bold cyan]SmartDL Diagnostics[/bold cyan]",
-                   border_style="cyan", padding=(0, 2)))
-
-
-def _handle_queue(cmds):
-    """Handle queue commands."""
-    from smart_dl.core.queue import (
-        add_to_queue,
-        clear_queue,
-        get_queue,
-        get_queue_stats,
-        init_db,
-        pause_queue,
-        process_queue,
-        resume_queue,
-    )
-    init_db()
-
-    if not cmds:
-        from smart_dl.ui import warn
-        warn("Usage: --queue add URL... | start | pause | resume | list | stats | clear")
-        return
-
-    action = cmds[0].lower()
-
-    if action == "add":
-        urls = cmds[1:]
-        if not urls:
-            from smart_dl.ui import warn
-            warn("Usage: --queue add URL1 URL2 ...")
-            return
-        count = add_to_queue(urls)
-        from smart_dl.ui import success
-        success(f"Added {count} URL(s) to queue 📥.")
-
-    elif action == "start":
-        from smart_dl.core.paths import get_default_download_dir
-        from smart_dl.core.queue import process_queue
-        from smart_dl.ui import info, success
-        from smart_dl.ui.progress import stop_event
-
-        out_folder = get_default_download_dir()
-        out_folder.mkdir(parents=True, exist_ok=True)
-        info(f"Processing queue → {out_folder}")
-
-        result = process_queue(
-            lambda item: queue_download_item(item, out_folder),
-            should_stop=stop_event.is_set,
-        )
-        success(
-            f"Queue done: {result['completed']} ok, {result['failed']} failed"
-            + (", stopped early" if result["stopped"] else "")
-        )
-
-    elif action == "pause":
-        from smart_dl.ui import info
-        from smart_dl.ui.progress import stop_event
-
-        stop_event.set()
-        paused = pause_queue()
-        info(f"Pause requested; {paused} active item(s) marked paused.")
-
-    elif action == "resume":
-        from smart_dl.ui import info, success
-        from smart_dl.ui.progress import stop_event
-
-        stop_event.clear()
-        resumed = resume_queue()
-        info(f"Resumed {resumed} paused item(s). Re-run --queue start to process.")
-
-    elif action == "list":
-        items = get_queue()
-        if not items:
-            print("Queue is empty.")
-            return
-        from rich import box
-        from rich.table import Table
-        t = Table(box=box.ROUNDED, show_header=True, border_style="cyan")
-        t.add_column("#", width=5)
-        t.add_column("URL", max_width=50)
-        t.add_column("Status", width=10)
-        t.add_column("Priority", width=8)
-        for item in items:
-            status_style = {"pending": "[yellow]", "active": "[cyan]", "completed": "[green]", "failed": "[red]", "paused": "[magenta]"}.get(item["status"], "")
-            t.add_row(str(item["id"]), item["url"][:50], status_style + item["status"] + "[/]", str(item["priority"]))
-        from smart_dl.ui import console
-        console.print(t)
-
-    elif action == "clear":
-        clear_queue()
-        from smart_dl.ui import success
-        success("Queue cleared 🧹.")
-
-    elif action == "stats":
-        stats = get_queue_stats()
-        from smart_dl.ui import console
-        console.print(
-            f"📊 [bold cyan]Queue Stats:[/bold cyan] {stats['total']} total, "
-            f"[yellow]{stats['pending']} pending[/yellow], "
-            f"[blue]{stats['active']} active[/blue], "
-            f"[green]{stats['completed']} completed[/green], "
-            f"[red]{stats['failed']} failed[/red], "
-            f"[magenta]{stats.get('paused', 0)} paused[/magenta]"
-        )
-
-    else:
-        from smart_dl.ui import warn
-        warn("Unknown queue command. Usage: --queue add|start|pause|resume|list|stats|clear")
-
-
-def _handle_history(cmds):
-    """Handle history commands."""
-    from smart_dl.core.history import init_db
-    init_db()
-
-    if not cmds:
-        from smart_dl.ui import warn
-        warn("Usage: --history list | search QUERY | stats | re-download ID")
-        return
-
-    action = cmds[0].lower()
-
-    if action == "list":
-        from smart_dl.core.manager import list_downloads
-        list_downloads()
-
-    elif action == "search":
-        query = " ".join(cmds[1:])
-        if not query:
-            print("Usage: --history search KEYWORD")
-            return
-        from smart_dl.core.manager import list_downloads
-        list_downloads(search=query)
-
-    elif action == "stats":
-        from smart_dl.core.manager import show_stats
-        show_stats()
-
-    elif action == "re-download":
-        if len(cmds) < 2:
-            print("Usage: --history re-download ID")
-            return
-        try:
-            hist_id = int(cmds[1])
-        except ValueError:
-            print("Invalid ID.")
-            return
-        from smart_dl.core.history import get_history_by_id
-        entry = get_history_by_id(hist_id)
-        if not entry:
-            print(f"History entry {hist_id} not found.")
-            return
-        from smart_dl.extractors.youtube import download_yt
-        from smart_dl.ui import info as ui_info
-        ui_info(f"Re-downloading: {entry['title']}")
-        download_yt(entry["url"], Path.home() / "Downloads" / "SmartDL", "bestvideo+bestaudio/best")
+def print_diagnostics_safe() -> None:
+    """Print diagnostics without crashing the CLI."""
+    _print_diagnostics()
 
 
 if __name__ == "__main__":
