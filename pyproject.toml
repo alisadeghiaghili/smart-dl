@@ -8,7 +8,7 @@ version = "3.18.0"
 description = "Resilient media downloader for unstable networks — YouTube, Aparat, podcasts, and 1800+ sites"
 readme = "README.md"
 license = "Apache-2.0"
-requires-python = ">=3.8"
+requires-python = ">=3.9"
 authors = [
     {name = "Hellch!ef", email = "alisadeghil@gmail.com"}
 ]
@@ -21,7 +21,6 @@ classifiers = [
     "Operating System :: POSIX :: Linux",
     "Operating System :: MacOS",
     "Programming Language :: Python :: 3",
-    "Programming Language :: Python :: 3.8",
     "Programming Language :: Python :: 3.9",
     "Programming Language :: Python :: 3.10",
     "Programming Language :: Python :: 3.11",
@@ -60,13 +59,13 @@ Issues = "https://github.com/alisadeghiaghili/smart-dl/issues"
 include = ["smart_dl*"]
 
 [tool.mypy]
-python_version = "3.8"
+python_version = "3.9"
 warn_return_any = true
 warn_unused_configs = true
 disallow_untyped_defs = false
 
 [tool.ruff]
-target-version = "py38"
+target-version = "py39"
 line-length = 120
 
 [tool.ruff.lint]

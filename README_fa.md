@@ -1,11 +1,11 @@
-# SmartDL v3.4.0
+# SmartDL v3.18.0
 
 > **اتصال ضعیفه؟ حلقه retry من رو نگه دار.**
 
 دانلودر رسانه مقاوم برای شبکه‌های ناپایدار.
 طراحی شده برای کاربران پشت اتصالات ضعیف و VPN — SmartDL هرگز تسلیم نمی‌شود.
 
-[![Python](https://img.shields.io/badge/python-3.8%2B-blue?style=flat-square)](https://www.python.org/)
+[![Python](https://img.shields.io/badge/python-3.9%2B-blue?style=flat-square)](https://www.python.org/)
 [![License: Apache-2.0](https://img.shields.io/badge/license-Apache--2.0-blue?style=flat-square)](LICENSE)
 
 > اگر SmartDL در ساعت 3 صبح دانلود شکسته‌ات رو نجات داد — می‌دونی چیکار باید بکنی. ☕  
@@ -58,7 +58,7 @@
 
 ## پیش‌نیازها
 
-- Python 3.8+
+- Python 3.9+
 - [ffmpeg](https://ffmpeg.org/) — برای ویدیوی HD (ادغام) و تبدیل MP3 ضروری است
 
 ### نصب ffmpeg (ویندوز)

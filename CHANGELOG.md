@@ -5,11 +5,16 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 ## [Unreleased]
 
+### Changed
+- Official Python support floor is **3.9+** (matches CI matrix and runtime typing); dropped untested 3.8 claims from `pyproject.toml`, README badges, and tool targets
+- CI matrix now includes Python 3.10 on Ubuntu and Windows
+
 ### Fixed
 - History cleanup safety: `cleanup_downloads` now queries production status `completed` via `HistoryStatus` instead of the non-existent synonym `success`, so files that were re-downloaded successfully are not deleted
 - Cleanup removed dead code after `return`; success message now prints when files are removed
 - History status vocabulary centralized in `HistoryStatus` (`completed` / `failed`); recorder, stats, and manager use the same values
 - Cleanup tests rewritten against a real SQLite history DB with production status strings (regression guard for the synonym bug)
+- Persian README version badge aligned with package version
 
 ---
 
