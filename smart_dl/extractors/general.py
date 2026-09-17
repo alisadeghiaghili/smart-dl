@@ -1,4 +1,7 @@
 """General extractor — handles any yt-dlp-supported site."""
+
+from typing import Any
+
 import yt_dlp
 from rich.panel import Panel
 
@@ -11,7 +14,8 @@ from smart_dl.utils import fmt_dur
 try:
     from smart_dl.lang import t
 except ImportError:
-    def t(key, **kw):
+
+    def t(key: str, **kwargs: Any) -> str:
         return key
 
 

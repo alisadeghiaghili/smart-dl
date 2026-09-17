@@ -201,14 +201,16 @@ def get_media_formats(url: str) -> Optional[Dict[str, Any]]:
 
     try:
         with yt_dlp.YoutubeDL(ydl_opts) as ydl:
-            return ydl.extract_info(url, download=False)
+            info = ydl.extract_info(url, download=False)
+            return dict(info) if isinstance(info, dict) else None
     except Exception as e:
         err_s = str(e)
         if "sign in to confirm" in err_s.lower() or "not a bot" in err_s.lower():
             if handle_bot_detection(url, ydl_opts):
                 try:
                     with yt_dlp.YoutubeDL(ydl_opts) as ydl:
-                        return ydl.extract_info(url, download=False)
+                        info = ydl.extract_info(url, download=False)
+                        return dict(info) if isinstance(info, dict) else None
                 except Exception as e2:
                     error(str(e2)[:200])
                     return None
@@ -230,7 +232,8 @@ def get_media_formats(url: str) -> Optional[Dict[str, Any]]:
                     "listformats": False,
                     "noplaylist": True,
                 }) as ydl:
-                    return ydl.extract_info(url, download=False)
+                    extracted = ydl.extract_info(url, download=False)
+                    return dict(extracted) if isinstance(extracted, dict) else None
         _net_kws = [
             "getaddrinfo failed", "name or service not known",
             "failed to resolve", "network is unreachable",

@@ -8,7 +8,7 @@ version = "3.18.0"
 description = "Resilient media downloader for unstable networks — YouTube, Aparat, podcasts, and 1800+ sites"
 readme = "README.md"
 license = "Apache-2.0"
-requires-python = ">=3.8"
+requires-python = ">=3.9"
 authors = [
     {name = "Hellch!ef", email = "alisadeghil@gmail.com"}
 ]
@@ -21,7 +21,6 @@ classifiers = [
     "Operating System :: POSIX :: Linux",
     "Operating System :: MacOS",
     "Programming Language :: Python :: 3",
-    "Programming Language :: Python :: 3.8",
     "Programming Language :: Python :: 3.9",
     "Programming Language :: Python :: 3.10",
     "Programming Language :: Python :: 3.11",
@@ -43,6 +42,7 @@ web = [
 ]
 dev = [
     "pytest>=7.0",
+    "pytest-cov>=4.0",
     "mypy>=1.0",
     "ruff>=0.1.0",
     "build>=1.0",
@@ -60,13 +60,32 @@ Issues = "https://github.com/alisadeghiaghili/smart-dl/issues"
 include = ["smart_dl*"]
 
 [tool.mypy]
-python_version = "3.8"
+# mypy tool baseline; package still supports runtime Python 3.9+
+python_version = "3.10"
 warn_return_any = true
 warn_unused_configs = true
 disallow_untyped_defs = false
+ignore_missing_imports = true
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+
+[tool.coverage.run]
+source = ["smart_dl"]
+branch = false
+
+[tool.coverage.report]
+# Floor matches current measured coverage (~36%); raise deliberately after new tests.
+fail_under = 35
+skip_covered = true
+exclude_lines = [
+    "pragma: no cover",
+    "if TYPE_CHECKING:",
+    "raise NotImplementedError",
+]
 
 [tool.ruff]
-target-version = "py38"
+target-version = "py39"
 line-length = 120
 
 [tool.ruff.lint]

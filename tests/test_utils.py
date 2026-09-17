@@ -10,6 +10,7 @@ from smart_dl.utils import (
     fmt_dur,
     fmt_size,
     is_aparat_url,
+    is_http_url,
     is_playlist_url,
     is_podcast_url,
     is_youtube_url,
@@ -138,3 +139,18 @@ class TestIsPodcastUrl:
 
     def test_not_podcast(self):
         assert is_podcast_url("https://youtube.com/watch?v=abc") is False
+
+
+class TestIsHttpUrl:
+    def test_http_https_accepted(self):
+        assert is_http_url("https://example.com") is True
+        assert is_http_url("http://example.com/x") is True
+
+    def test_ftp_allowed_by_contract(self):
+        # Name says http, but yt-dlp paths historically accept ftp as well.
+        assert is_http_url("ftp://example.com/file.mp3") is True
+
+    def test_rejects_other_schemes(self):
+        assert is_http_url("file:///tmp/x") is False
+        assert is_http_url("mailto:a@b.c") is False
+        assert is_http_url("") is False

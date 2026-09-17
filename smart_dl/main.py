@@ -15,14 +15,12 @@ from smart_dl.core.paths import get_default_download_dir
 from smart_dl.core.proxy import proxy_menu, proxy_step
 from smart_dl.core.retry import diagnose_error
 from smart_dl.extractors.aparat import download_aparat, handle_aparat_playlist
-from smart_dl.extractors.courses import download_course, is_course_url
+from smart_dl.extractors.courses import download_course
 from smart_dl.extractors.education import (
     download_education_course,
-    is_education_url,
 )
 from smart_dl.extractors.general import detect_platform
 from smart_dl.extractors.podcast import handle_podcast
-from smart_dl.extractors.podcast_meta import is_podcast_platform_url
 from smart_dl.extractors.youtube import (
     download_yt,
     get_yt_formats,
@@ -35,11 +33,8 @@ from smart_dl.ui import console, error, info, print_section, success, warn
 from smart_dl.ui.logo import bye, print_header
 from smart_dl.ui.progress import stop_event
 from smart_dl.utils import (
-    is_aparat_url,
     is_http_url,
-    is_playlist_url,
     is_podcast_url,
-    is_youtube_url,
 )
 
 
@@ -163,27 +158,26 @@ def main() -> None:
             continue
 
         try:
-            if is_playlist_url(url):
-                if is_aparat_url(url):
-                    handle_aparat_playlist(url, out_folder)
-                else:
-                    handle_playlist(url, out_folder)
+            from smart_dl.extractors.registry import ExtractorKind, resolve_extractor_kind
 
-            elif is_aparat_url(url):
+            kind = resolve_extractor_kind(url)
+
+            if kind == ExtractorKind.PLAYLIST_APARAT:
+                handle_aparat_playlist(url, out_folder)
+            elif kind == ExtractorKind.PLAYLIST_YOUTUBE:
+                handle_playlist(url, out_folder)
+            elif kind == ExtractorKind.APARAT:
                 download_aparat(url, out_folder)
-
-            elif is_youtube_url(url):
+            elif kind == ExtractorKind.YOUTUBE:
                 print_section(t("analyzing_youtube"), "\U0001f3a5")
                 vid_info = get_yt_formats(url)
                 if vid_info:
                     fmt, is_audio = yt_quality_menu(vid_info)
                     if fmt is not None:
                         download_yt(url, out_folder, fmt, is_audio)
-
-            elif is_podcast_url(url) or is_podcast_platform_url(url):
+            elif kind == ExtractorKind.PODCAST:
                 handle_podcast(url, out_folder)
-
-            elif is_education_url(url):
+            elif kind == ExtractorKind.EDUCATION:
                 from rich.prompt import IntPrompt
 
                 from smart_dl.extractors.education import parse_course_outline
@@ -204,44 +198,39 @@ def main() -> None:
                     )
                     max_lessons = None if cap == 0 else max(0, int(cap))
                 download_education_course(url, out_folder, max_lessons=max_lessons)
+            elif kind == ExtractorKind.PERSIAN:
+                from smart_dl.extractors.persian import download_persian_platform
 
+                download_persian_platform(url, out_folder)
+            elif kind == ExtractorKind.COURSE:
+                download_course(url, out_folder)
             else:
-                from smart_dl.extractors.persian import (
-                    download_persian_platform,
-                    is_persian_platform,
-                )
+                print_section(t("analyzing_video"), "\U0001f50d")
+                platform = detect_platform(url)
+                if platform:
+                    info("Detected platform: " + platform)
+                vid_info = get_yt_formats(url)
+                if vid_info:
+                    fmt, is_audio = yt_quality_menu(vid_info)
+                    if fmt is not None:
+                        download_yt(url, out_folder, fmt, is_audio)
+                elif vid_info is None:
+                    from urllib.parse import urlparse
 
-                if is_persian_platform(url):
-                    download_persian_platform(url, out_folder)
-                elif is_course_url(url):
-                    download_course(url, out_folder)
-                else:
-                    print_section(t("analyzing_video"), "\U0001f50d")
-                    platform = detect_platform(url)
-                    if platform:
-                        info("Detected platform: " + platform)
-                    vid_info = get_yt_formats(url)
-                    if vid_info:
-                        fmt, is_audio = yt_quality_menu(vid_info)
-                        if fmt is not None:
-                            download_yt(url, out_folder, fmt, is_audio)
-                    elif vid_info is None:
-                        from urllib.parse import urlparse
+                    host = urlparse(url).netloc or url
+                    already = host in _prog_mod._no_internet_hosts
+                    if not already:
+                        try:
+                            import requests
 
-                        host = urlparse(url).netloc or url
-                        already = host in _prog_mod._no_internet_hosts
-                        if not already:
-                            try:
-                                import requests
-
-                                resp = requests.head(url, timeout=10, allow_redirects=True)
-                                ct = resp.headers.get("Content-Type", "")
-                            except Exception:
-                                ct = ""
-                            if is_podcast_url(url, ct=ct):
-                                handle_podcast(url, out_folder)
-                            else:
-                                error(t("cannot_handle"))
+                            resp = requests.head(url, timeout=10, allow_redirects=True)
+                            ct = resp.headers.get("Content-Type", "")
+                        except Exception:
+                            ct = ""
+                        if is_podcast_url(url, ct=ct):
+                            handle_podcast(url, out_folder)
+                        else:
+                            error(t("cannot_handle"))
         except KeyboardInterrupt:
             warn(t("stopped_by_user"))
         except Exception as exc:

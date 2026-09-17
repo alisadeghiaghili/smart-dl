@@ -258,4 +258,6 @@ def record_subscription_download(
         from urllib.parse import parse_qs, urlparse
 
         video_id = parse_qs(urlparse(video_url).query).get("v", [""])[0]
-    store.add_subscription_video(sub_id, video_url, title=title, video_id=video_id)
+    store.add_subscription_video(
+        sub_id, video_url, video_title=title, video_id=video_id
+    )

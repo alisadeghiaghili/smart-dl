@@ -127,5 +127,5 @@ def platform_from_url(url: str, mapping: dict) -> Optional[str]:
         return None
     for domain, label in mapping.items():
         if host_matches(host, (domain,)):
-            return label
+            return str(label)
     return None

@@ -1,7 +1,10 @@
 """SmartDL Web GUI — Streamlit-based web interface."""
+from __future__ import annotations
+
 import os
 import sys
 from pathlib import Path
+from typing import Optional
 
 # Ensure we can import smart_dl
 sys.path.insert(0, str(Path(__file__).parent.parent))
@@ -44,7 +47,7 @@ init_history_db()
 
 def get_yt_info(url: str):
     """Fetch video info from URL."""
-    ydl_opts = {"quiet": True, "no_warnings": True, "noplaylist": True}
+    ydl_opts: dict = {"quiet": True, "no_warnings": True, "noplaylist": True}
     prx = get_current_proxy()
     if prx:
         ydl_opts["proxy"] = prx
@@ -56,10 +59,18 @@ def get_yt_info(url: str):
         return None
 
 
-def do_download(url: str, out_dir: str, fmt: str, is_audio: bool = False,
-                clip: str = None, sponsorblock: bool = False,
-                audio_format: str = "mp3", audio_quality: str = "192",
-                embed_metadata: bool = False, embed_thumbnail: bool = False):
+def do_download(
+    url: str,
+    out_dir: str,
+    fmt: str,
+    is_audio: bool = False,
+    clip: Optional[str] = None,
+    sponsorblock: bool = False,
+    audio_format: str = "mp3",
+    audio_quality: str = "192",
+    embed_metadata: bool = False,
+    embed_thumbnail: bool = False,
+) -> bool:
     """Download a URL through the shared CLI download engine.
 
     Parameters
@@ -290,9 +301,10 @@ if "info" in st.session_state:
         # Download button
         if st.button("⬇️ Download", type="primary", use_container_width=True):
             with st.spinner("Downloading..."):
+                clip_val = clip or None
                 success = do_download(
                     url, out_dir, selected_fmt, is_audio,
-                    clip=clip or None, sponsorblock=sponsorblock,
+                    clip=clip_val, sponsorblock=sponsorblock,
                     audio_format=audio_format, audio_quality=audio_quality,
                     embed_metadata=embed_metadata, embed_thumbnail=embed_thumbnail,
                 )

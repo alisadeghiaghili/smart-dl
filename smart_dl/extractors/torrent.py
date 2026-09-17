@@ -1,7 +1,9 @@
 """Torrent/magnet download support."""
+
 import os
 import subprocess
 from pathlib import Path
+from typing import Any
 
 from rich.panel import Panel
 from rich.prompt import Prompt
@@ -12,7 +14,8 @@ from smart_dl.ui import console, error, info, print_section, success, warn
 try:
     from smart_dl.lang import t
 except ImportError:
-    def t(key, **kw):
+
+    def t(key: str, **kwargs: Any) -> str:
         return key
 
 
@@ -155,10 +158,11 @@ def _download_aria2(url: str, out_dir: str):
     info("Starting download with aria2c...")
     try:
         proc = subprocess.Popen(cmd, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True)
-        for line in proc.stdout:
-            line = line.strip()
-            if line:
-                info(line[:100])
+        if proc.stdout is not None:
+            for line in proc.stdout:
+                line = line.strip()
+                if line:
+                    info(line[:100])
         proc.wait()
         if proc.returncode == 0:
             success("Torrent download complete!")

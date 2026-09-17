@@ -1,5 +1,8 @@
 """Language translation system for SmartDL."""
+from __future__ import annotations
+
 import os
+from typing import Any
 
 _current_lang = None
 
@@ -67,6 +70,12 @@ _EN = {
     "castbox_channel": "Castbox channel",
     "downloaded_count": "Downloaded",
     "failed_count": "Failed",
+
+    # Manager / history
+    "no_downloads": "No downloads found.",
+    "showing_downloads": "Showing",
+    "no_failed_downloads": "No failed downloads to clean up.",
+    "no_cleanup_files": "No files to clean up.",
 
     # Sections
     "analyzing_youtube": "Analyzing YouTube link",
@@ -422,6 +431,12 @@ _FA = {
     "converting_to": "در حال تبدیل به",
     "downloaded": "دانلود شد:",
 
+    # Manager / history
+    "no_downloads": "دانلودی یافت نشد.",
+    "showing_downloads": "نمایش",
+    "no_failed_downloads": "دانلود ناموفقی برای پاک‌سازی نیست.",
+    "no_cleanup_files": "فایلی برای پاک‌سازی نیست.",
+
     # Errors
     "error": "خطا",
     "could_not_extract": "امکان استخراج اطلاعات ویدیو وجود ندارد.",
@@ -434,8 +449,26 @@ _FA = {
 _strings = {"en": _EN, "fa": _FA}
 
 
-def t(key: str, **kwargs) -> str:
-    """Translate a string key to the current language."""
+def t(key: str, **kwargs: Any) -> str:
+    """Translate a string key to the current language.
+
+    Parameters
+    ----------
+    key : str
+        Lookup key in the English/Persian dictionaries.
+    **kwargs : Any
+        Placeholder replacements for ``{name}`` tokens.
+
+    Returns
+    -------
+    str
+        Localized string, or the key when missing.
+
+    Examples
+    --------
+    >>> t("quit")
+    'bye'
+    """
     lang = get_lang()
     result = _strings.get(lang, _EN).get(key, _strings["en"].get(key, key))
     if kwargs:

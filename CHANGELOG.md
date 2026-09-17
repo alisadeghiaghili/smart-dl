@@ -3,6 +3,38 @@
 All notable changes to SmartDL are documented here.
 Format follows [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
+## [Unreleased]
+
+### Added
+- CI quality gates: `mypy smart_dl` and pytest coverage (`fail_under=35`) now run on every push/PR
+- `pytest-cov` added to the `dev` extra
+- Extractor routing registry (`smart_dl.extractors.registry`) + shared CLI/queue dispatch module
+- README capability matrix (native / partial / yt-dlp passthrough)
+- Subscription auto-download honors per-subscription `auto_download` flag (in addition to `SMARTDL_SUBS_AUTODL=1`)
+- Manager history messages use language keys when available
+- PyInstaller spec collects all `smart_dl` submodules
+
+### Changed
+- Official Python support floor is **3.9+** (matches CI matrix and runtime typing); dropped untested 3.8 claims from `pyproject.toml`, README badges, and tool targets
+- CI matrix now includes Python 3.10 on Ubuntu and Windows
+- `python smart_dl.py` now delegates to `smart_dl.__main__.main` (single bootstrap path)
+- ROADMAP marks cookies.txt / partial FA i18n / partial channel autodownload as done-or-partial
+
+### Fixed
+- History cleanup safety: `cleanup_downloads` now queries production status `completed` via `HistoryStatus` instead of the non-existent synonym `success`, so files that were re-downloaded successfully are not deleted
+- Cleanup removed dead code after `return`; success message now prints when files are removed
+- History status vocabulary centralized in `HistoryStatus` (`completed` / `failed`); recorder, stats, and manager use the same values
+- Cleanup tests rewritten against a real SQLite history DB with production status strings (regression guard for the synonym bug)
+- Persian README version badge aligned with package version
+- Type safety: subscription history recording uses `video_title=` (was calling a non-existent `title=` kwarg)
+- Playlist download path no longer references unbound `fmt`/`is_audio` when using shared quality; returns explicit success/failure
+- Podcast non-interactive downloads accept default original format when no quality tuple is provided
+- Broad mypy cleanup: consistent `t()` fallback signatures, explicit returns, and safer dict/None handling
+- Documented `is_http_url` contract (accepts http/https/ftp) with unit tests
+- `.gitignore` covers local scratch dirs (`.tmp_pytest/`, `.tmp_*.py`)
+
+---
+
 ## [3.18.0] - 2026-09-11
 
 ### Added

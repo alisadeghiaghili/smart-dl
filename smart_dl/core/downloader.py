@@ -1,5 +1,8 @@
 """Download engine — Smart Mode, clipping, SponsorBlock, format selection."""
+from __future__ import annotations
+
 from pathlib import Path
+from typing import Any, Dict
 
 import yt_dlp
 
@@ -14,15 +17,25 @@ from smart_dl.ui.progress import _progress_ctx, make_progress, stop_event, yt_ho
 try:
     from smart_dl.lang import t
 except ImportError:
-    def t(key, **kw):
+
+    def t(key: str, **kwargs: Any) -> str:
         return key
 
 
 # ─── Smart Mode ──────────────────────────────────────────────────────────────
-def get_smart_mode() -> dict:
-    """Load smart mode preferences from config."""
+def get_smart_mode() -> Dict[str, Any]:
+    """Load smart mode preferences from config.
+
+    Returns
+    -------
+    dict
+        Preference mapping with defaults when unset or non-dict.
+    """
     cfg = load_config()
-    return cfg.get("smart_mode", {
+    value = cfg.get("smart_mode")
+    if isinstance(value, dict):
+        return value
+    return {
         "enabled": False,
         "quality": "best",
         "format": "mp4",
@@ -32,7 +45,7 @@ def get_smart_mode() -> dict:
         "embed_thumbnail": False,
         "embed_subs": False,
         "sponsorblock": False,
-    })
+    }
 
 
 def save_smart_mode(prefs: dict):

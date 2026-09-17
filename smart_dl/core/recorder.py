@@ -6,6 +6,7 @@ from pathlib import Path
 from typing import Optional
 
 from smart_dl.core import history as history_store
+from smart_dl.core.history import HistoryStatus
 from smart_dl.core.net_utils import url_host
 from smart_dl.utils import is_aparat_url, is_youtube_url
 
@@ -82,6 +83,6 @@ def record_download(
         file_size=size,
         format_str=format_str,
         is_audio=is_audio,
-        status="completed" if success else "failed",
+        status=HistoryStatus.COMPLETED if success else HistoryStatus.FAILED,
         error="" if success else (error or "unknown error"),
     )

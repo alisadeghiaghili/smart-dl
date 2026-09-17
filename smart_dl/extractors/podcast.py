@@ -4,6 +4,7 @@ from __future__ import annotations
 import re
 import subprocess
 import xml.etree.ElementTree as ET
+from typing import Any
 
 import requests
 import yt_dlp
@@ -22,7 +23,8 @@ from smart_dl.utils import fmt_size
 try:
     from smart_dl.lang import t
 except ImportError:
-    def t(key, **kw):
+
+    def t(key: str, **kwargs: Any) -> str:
         return key
 
 
@@ -151,9 +153,26 @@ def _convert_audio(raw_path, out_path, fmt_key):
     return final
 
 
-def download_podcast_url(url, out_folder, fmt_tuple):
-    """Download a podcast audio file with retry logic."""
+def download_podcast_url(url, out_folder, fmt_tuple=None):
+    """Download a podcast audio file with retry logic.
+
+    Parameters
+    ----------
+    url : str
+        Direct audio URL.
+    out_folder : pathlib.Path
+        Destination directory.
+    fmt_tuple : tuple, optional
+        ``(label, fmt_key, note)`` from :func:`podcast_quality_menu`.
+        Defaults to original/no-convert for non-interactive callers.
+
+    Returns
+    -------
+    None
+    """
     stop_event.clear()
+    if fmt_tuple is None:
+        fmt_tuple = ("Original (no conversion)", "original", "Direct — fastest")
     label, fmt_key, _ = fmt_tuple
     prx = get_current_proxy()
     max_r = DL_SETTINGS["max_retries"]
@@ -357,7 +376,22 @@ def handle_podcast(url, out_folder, *, max_episodes: int | None = None,
                     return download_episodes(
                         eps, out_folder, fmt, max_episodes=max_episodes
                     )
-                eps = castbox_episode_lessons(text, limit=50)
+                raw_eps = castbox_episode_lessons(text, limit=50) or []
+                eps = []
+                for item in raw_eps:
+                    if isinstance(item, dict):
+                        item_url = str(item.get("url") or "")
+                        item_title = str(item.get("title") or "")
+                    else:
+                        item_url = str(getattr(item, "url", "") or "")
+                        item_title = str(getattr(item, "title", "") or "")
+                    if item_url:
+                        eps.append(
+                            {
+                                "title": (item_title or item_url.rsplit("/", 1)[-1])[:80],
+                                "url": item_url,
+                            }
+                        )
                 if eps:
                     info(f"Found {len(eps)} Castbox episode link(s)")
                     fmt = podcast_quality_menu(raw_sz=raw_sz)
@@ -428,8 +462,9 @@ def handle_podcast(url, out_folder, *, max_episodes: int | None = None,
     # fallback: yt-dlp
     from smart_dl.extractors.youtube import download_yt, yt_quality_menu
     try:
-        ydl_opts = {"quiet":True,"no_warnings":True}
-        if prx: ydl_opts["proxy"] = prx
+        ydl_opts: dict = {"quiet": True, "no_warnings": True}
+        if prx:
+            ydl_opts["proxy"] = prx
         with yt_dlp.YoutubeDL(ydl_opts) as ydl:
             media_info = ydl.extract_info(url, download=False)
 

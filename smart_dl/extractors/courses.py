@@ -3,7 +3,7 @@ from __future__ import annotations
 
 import re
 from pathlib import Path
-from typing import Dict, Optional
+from typing import Any, Dict, Optional
 from urllib.parse import urlparse
 
 import requests
@@ -14,7 +14,8 @@ from smart_dl.ui import console, error, info, print_section, warn
 try:
     from smart_dl.lang import t
 except ImportError:
-    def t(key: str, **kw) -> str:
+
+    def t(key: str, **kwargs: Any) -> str:
         return key
 
 

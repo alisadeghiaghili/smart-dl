@@ -5,7 +5,7 @@
 A resilient, multi-threaded media downloader built for unstable networks.
 Designed for users behind weak connections and VPNs — SmartDL never gives up.
 
-[![Python](https://img.shields.io/badge/python-3.8%20|%203.9%20|%203.11%20|%203.12%20|%203.13%20|%203.14-blue?style=flat-square)](https://www.python.org/)
+[![Python](https://img.shields.io/badge/python-3.9%20%7C%203.10%20%7C%203.11%20%7C%203.12%20%7C%203.13%20%7C%203.14-blue?style=flat-square)](https://www.python.org/)
 [![License: Apache-2.0](https://img.shields.io/badge/license-Apache--2.0-blue?style=flat-square)](LICENSE)
 [![Buy Me a Coffee](https://img.shields.io/badge/support-Buy%20Me%20a%20Coffee-yellow?style=flat-square&logo=buy-me-a-coffee)](https://buymeacoffee.com/alisadeghil)
 [![GitHub Downloads](https://img.shields.io/github/downloads/alisadeghiaghili/smart-dl/total?style=flat-square&label=downloads&color=blue)](https://github.com/alisadeghiaghili/smart-dl/releases)
@@ -17,9 +17,23 @@ Designed for users behind weak connections and VPNs — SmartDL never gives up.
 
 ## Features
 
+### Capability matrix (honest)
+
+| Area | Status | Notes |
+|------|--------|-------|
+| YouTube | **Native** | Format menu, playlists, thumbnails, yt-dlp engine |
+| Aparat | **Native** | Videos + playlists |
+| Podcasts / RSS / Castbox | **Native** | Feed discovery, episode batch download |
+| Maktabkhooneh / Faradars / Coursera | **Partial native** | Outline parse + yt-dlp per lesson; cookies required for paid content |
+| Persian platforms (Namava, Filimo, …) | **Partial** | Detection + yt-dlp fallback |
+| Udemy / Hotmart / Teachable / … | **Detection only** | Falls back to yt-dlp; no DRM bypass |
+| Torrent / magnet | **External tools** | Needs aria2c, transmission, or qBittorrent |
+| 1800+ other sites | **yt-dlp passthrough** | Not native extractors |
+| Persian UI | **Partial** | Interactive strings localized; large parts of CLI still English |
+
 ### Core
 - **YouTube** — full format list (all resolutions, all audio tracks), video info panel
-- **Aparat, Maktabkhooneh & Faradars** — native support for Iranian video & education platforms
+- **Aparat, Maktabkhooneh & Faradars** — support for Iranian video & education platforms (see matrix)
 - **1800+ sites via yt-dlp** — TikTok, Instagram, Twitter/X, Reddit, Twitch, Vimeo, SoundCloud, and more
 - **Podcasts** — direct MP3/M4A links, RSS feeds, SoundCloud, Castbox, and more
 
@@ -46,21 +60,21 @@ Designed for users behind weak connections and VPNs — SmartDL never gives up.
 ### Queue & History
 - **Download queue** — add multiple URLs, process sequentially or in parallel
 - **Download history** — SQLite database with search, filter, and export
-- **Subscriptions** — follow channels and auto-download new uploads
+- **Subscriptions** — follow channels; auto-download when a subscription has `auto_download` enabled or `SMARTDL_SUBS_AUTODL=1`
 
 ### Extra Features
 - **Image galleries** — download from Pixiv, DeviantArt, ArtStation, Flickr, Imgur
 - **Torrent/magnet** — download torrents via aria2c, transmission, or qBittorrent
 - **Portable mode** — run from USB stick without touching system directories
 - **12 CLI themes** — Dracula, Catppuccin, Nord, Tokyo Night, and more
-- **Persian/Farsi UI** — full Persian language support
+- **Persian/Farsi UI** — full Persian language support (see matrix)
 - **CLI automation** — 40+ flags for scripting and automation
 
 ---
 
 ## Requirements
 
-- Python 3.8+
+- Python 3.9+
 - [ffmpeg](https://ffmpeg.org/) — required for HD video (merge) and MP3 conversion
 
 ### Install ffmpeg (Windows)
