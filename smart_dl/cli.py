@@ -27,6 +27,7 @@ from smart_dl.commands.subscriptions import (
     handle_subscribe,
     handle_unsubscribe,
 )
+from smart_dl.commands.wave4_cmds import handle_api_server, handle_aria2_rpc
 from smart_dl.commands.wave_features import (
     handle_clipboard_watch,
     handle_config_export,
@@ -266,6 +267,23 @@ def build_parser() -> argparse.ArgumentParser:
         "--subs-check",
         action="store_true",
         help="Run subscription update check once (Task Scheduler / cron friendly)",
+    )
+    parser.add_argument(
+        "--aria2-rpc",
+        nargs="+",
+        metavar="URL",
+        help="Queue URL(s) into aria2 JSON-RPC (config aria2_rpc_url)",
+    )
+    parser.add_argument(
+        "--api",
+        action="store_true",
+        help="Start local HTTP control API on 127.0.0.1 (config api_token optional)",
+    )
+    parser.add_argument(
+        "--api-port",
+        type=int,
+        default=8765,
+        help="Local API port (default: 8765)",
     )
 
     # Batches & Queue
@@ -521,6 +539,12 @@ def run_cli() -> None:
         return
     if getattr(args, "subs_check", False):
         handle_subs_check(once=True)
+        return
+    if getattr(args, "aria2_rpc", None):
+        handle_aria2_rpc(args.aria2_rpc)
+        return
+    if getattr(args, "api", False):
+        handle_api_server(host="127.0.0.1", port=int(getattr(args, "api_port", 8765) or 8765), foreground=True)
         return
 
     if args.cookies_file:

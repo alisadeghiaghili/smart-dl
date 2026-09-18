@@ -74,18 +74,19 @@ def handle_check_updates() -> None:
     """
     from smart_dl.core import sub_updates
     from smart_dl.core.subscriptions import get_subscriptions, init_db
+    from smart_dl.lang import t
     from smart_dl.ui import error, info, success
     from smart_dl.ui.progress import stop_event
 
     init_db()
     if not get_subscriptions():
-        info("No subscriptions found.")
+        info(t("cli_no_subs"))
         return
 
     result = sub_updates.check_all_subscriptions()
     info(f"Checked {result['checked']} subscription(s).")
     if result["total_new"] == 0:
-        success("No new uploads.")
+        success(t("cli_no_new_uploads"))
         return
 
     success(f"Found {result['total_new']} new upload(s):")

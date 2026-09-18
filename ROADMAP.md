@@ -15,8 +15,10 @@ Each item is designed for TDD and a weekly-sized PR.
 | R6 | Channel auto-download | Partial — `--subs-check`, per-sub `auto_download`, `SMARTDL_SUBS_AUTODL=1` |
 | R7 | Telegram notify | Done — config token/chat + `record_download` hook |
 | R8 | Config import/export | Done — `--export-config` / `--import-config` (secrets scrubbed) |
+| R10 | Local HTTP API | Done — `--api` localhost + optional `api_token` |
+| R11 | aria2 RPC | Done — `--aria2-rpc` + `aria2_rpc_url` |
 | C-Auth | Cookie browser defaults | Done — `--set-cookie-browser` + diagnose |
-| R12 | Full FA i18n coverage | Partial — interactive keys complete; CLI still mixed |
+| R12 | Full FA i18n coverage | Partial — CLI keys added + EN↔FA parity test; more strings remain |
 
 ## Execution plan (ordered PRs)
 

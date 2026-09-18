@@ -159,6 +159,11 @@ def process_urls(urls: List[str], args: Any, out_folder: Path) -> None:
             failures += 1
 
     if failures:
-        error(f"Finished with {failures} failed download(s).")
+        from smart_dl.lang import t
+        from smart_dl.ui import error
+
+        error(t("cli_download_failed", n=failures))
         sys.exit(1)
-    success("All done!")
+    from smart_dl.lang import t
+
+    success(t("cli_all_done"))

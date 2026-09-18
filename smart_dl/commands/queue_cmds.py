@@ -50,9 +50,10 @@ def handle_queue(cmds: Optional[Sequence[str]], download_item: Callable[..., boo
             warn("Usage: --queue add URL1 URL2 ...")
             return
         count = add_to_queue(urls)
+        from smart_dl.lang import t
         from smart_dl.ui import success
 
-        success(f"Added {count} URL(s) to queue 📥.")
+        success(t("cli_queue_added", n=count))
         return
 
     if action == "start":
