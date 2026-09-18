@@ -159,6 +159,8 @@ smart-dl --schedule add "https://youtube.com/watch?v=abc" --at 02:30
 smart-dl --schedule list
 smart-dl --schedule start --once
 smart-dl --subs-check
+smart-dl --aria2-rpc "https://example.com/file.zip"
+smart-dl --api --api-port 8765
 
 # Video clipping
 smart-dl URL --clip 00:01:30-00:05:00

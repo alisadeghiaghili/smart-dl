@@ -8,6 +8,9 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 ### Added
 - Night download scheduler (R5): `--schedule add|list|clear|remove|start`
 - Automation helper (R6): `--subs-check` for Task Scheduler / cron
+- aria2 JSON-RPC optional mode (R11): `--aria2-rpc URL...` via config `aria2_rpc_url`
+- Local HTTP control API (R10): `--api` on `127.0.0.1` with optional `api_token`
+- CLI i18n keys + EN↔FA parity helper (`language_key_parity`)
 - `--update-ytdlp` and `SMARTDL_UPDATE_YTDLP=1` for opt-in yt-dlp upgrades
 - `--set-cookie-browser` to persist Firefox/Edge/Chrome cookie source
 - `--export-config` / `--import-config` portable settings (secrets never exported)

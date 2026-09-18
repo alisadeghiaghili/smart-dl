@@ -77,6 +77,30 @@ _EN = {
     "no_failed_downloads": "No failed downloads to clean up.",
     "no_cleanup_files": "No files to clean up.",
 
+    # CLI / commands (wave4 i18n)
+    "cli_queue_added": "Added {n} URL(s) to queue.",
+    "cli_queue_empty": "Queue is empty.",
+    "cli_queue_cleared": "Queue cleared.",
+    "cli_queue_done": "Queue done: {ok} ok, {failed} failed",
+    "cli_no_subs": "No subscriptions found.",
+    "cli_no_new_uploads": "No new uploads.",
+    "cli_schedule_empty": "Schedule is empty.",
+    "cli_all_done": "All done!",
+    "cli_download_failed": "Finished with {n} failed download(s).",
+    "cli_cookie_browser_set": "Cookie browser set to {browser}",
+    "cli_cookie_browser_cleared": "Cookie browser cleared.",
+    "cli_config_exported": "Exported portable config → {path}",
+    "cli_config_imported": "Imported {n} key(s)",
+    "cli_clipboard_started": "Clipboard watcher started.",
+    "cli_clipboard_stopped": "Clipboard watcher stopped.",
+    "cli_clipboard_done": "Clipboard watcher finished: {n} URL(s)",
+    "cli_notify_ok": "Telegram test message sent.",
+    "cli_notify_fail": "Telegram test failed (check settings).",
+    "cli_api_listening": "Local API listening on http://{host}:{port}",
+    "cli_api_token_required": "Authorization required (config api_token).",
+    "cli_aria2_not_configured": "aria2 RPC is not configured (aria2_rpc_url).",
+    "cli_aria2_ok": "Queued {n} URL(s) into aria2 RPC.",
+
     # Sections
     "analyzing_youtube": "Analyzing YouTube link",
     "analyzing_aparat": "Analyzing Aparat link",
@@ -437,6 +461,30 @@ _FA = {
     "no_failed_downloads": "دانلود ناموفقی برای پاک‌سازی نیست.",
     "no_cleanup_files": "فایلی برای پاک‌سازی نیست.",
 
+    # CLI / commands (wave4 i18n)
+    "cli_queue_added": "{n} نشانی به صف اضافه شد.",
+    "cli_queue_empty": "صف خالی است.",
+    "cli_queue_cleared": "صف پاک شد.",
+    "cli_queue_done": "صف تمام شد: {ok} موفق، {failed} ناموفق",
+    "cli_no_subs": "اشتراکی ثبت نشده است.",
+    "cli_no_new_uploads": "آپلود جدیدی نیست.",
+    "cli_schedule_empty": "زمان‌بندی خالی است.",
+    "cli_all_done": "همه تمام شد!",
+    "cli_download_failed": "با {n} دانلود ناموفق پایان یافت.",
+    "cli_cookie_browser_set": "مرورگر کوکی روی {browser} تنظیم شد.",
+    "cli_cookie_browser_cleared": "مرورگر کوکی پاک شد.",
+    "cli_config_exported": "پیکربندی قابل حمل خروجی گرفته شد ← {path}",
+    "cli_config_imported": "{n} کلید وارد شد",
+    "cli_clipboard_started": "پایش کلیپ‌بورد شروع شد.",
+    "cli_clipboard_stopped": "پایش کلیپ‌بورد متوقف شد.",
+    "cli_clipboard_done": "پایش کلیپ‌بورد تمام شد: {n} نشانی",
+    "cli_notify_ok": "پیام آزمایشی تلگرام ارسال شد.",
+    "cli_notify_fail": "تست تلگرام ناموفق بود (تنظیمات را بررسی کنید).",
+    "cli_api_listening": "API محلی روی http://{host}:{port} در حال گوش دادن",
+    "cli_api_token_required": "توکن لازم است (api_token در config).",
+    "cli_aria2_not_configured": "aria2 RPC تنظیم نشده (aria2_rpc_url).",
+    "cli_aria2_ok": "{n} نشانی به aria2 RPC رفت.",
+
     # Errors
     "error": "خطا",
     "could_not_extract": "امکان استخراج اطلاعات ویدیو وجود ندارد.",
@@ -447,6 +495,24 @@ _FA = {
 
 
 _strings = {"en": _EN, "fa": _FA}
+
+
+def language_key_parity() -> dict:
+    """Return EN/FA key parity diagnostics for CI tests.
+
+    Returns
+    -------
+    dict
+        ``missing_in_fa``, ``missing_in_en``, ``en_count``, ``fa_count``.
+    """
+    en_keys = set(_EN)
+    fa_keys = set(_FA)
+    return {
+        "en_count": len(en_keys),
+        "fa_count": len(fa_keys),
+        "missing_in_fa": sorted(en_keys - fa_keys),
+        "missing_in_en": sorted(fa_keys - en_keys),
+    }
 
 
 def t(key: str, **kwargs: Any) -> str:
