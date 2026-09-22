@@ -123,14 +123,18 @@ def _install_wt():
 def build_relaunch_argv() -> list:
     """Return the argv used to relaunch the interactive SmartDL app.
 
-    Uses ``python -m smart_dl`` so relaunch does not depend on a script path
-    inside the package (which would not start the UI).
+    Uses ``python -m smart_dl`` for source/installed runs so relaunch does not
+    depend on a script path inside the package (which would not start the UI).
+    A frozen (PyInstaller) build re-launches the executable itself — the exe
+    does not understand ``-m``.
 
     Returns
     -------
     list of str
         Command arguments starting with the current Python executable.
     """
+    if getattr(sys, "frozen", False):
+        return [sys.executable]
     return [sys.executable, "-m", "smart_dl"]
 
 
@@ -220,18 +224,24 @@ def fix_youtube_deps():
     ch = Prompt.ask("  [bold yellow]Select[/bold yellow]", default="3").strip()
 
     if ch in ("1", "3"):
-        info("Updating yt-dlp...")
-        try:
-            r = subprocess.run(
-                [sys.executable, "-m", "pip", "install", "--upgrade", "yt-dlp", "--quiet"],
-                timeout=120
-            )
-            if r.returncode == 0:
-                success("yt-dlp updated successfully.")
-            else:
-                warn("yt-dlp update may have failed.")
-        except Exception as e:
-            error("Failed to update yt-dlp: " + str(e))
+        if getattr(sys, "frozen", False):
+            # A frozen (PyInstaller) build has no editable pip site — the
+            # bundled yt-dlp ships inside the exe and cannot be hot-updated.
+            warn("yt-dlp is bundled in this build and cannot be updated here.")
+            info("Download the latest SmartDL release to get a newer yt-dlp.")
+        else:
+            info("Updating yt-dlp...")
+            try:
+                r = subprocess.run(
+                    [sys.executable, "-m", "pip", "install", "--upgrade", "yt-dlp", "--quiet"],
+                    timeout=120
+                )
+                if r.returncode == 0:
+                    success("yt-dlp updated successfully.")
+                else:
+                    warn("yt-dlp update may have failed.")
+            except Exception as e:
+                error("Failed to update yt-dlp: " + str(e))
 
     if (ch in ("2", "3")) and not has_node:
         info("Installing Node.js via winget...")

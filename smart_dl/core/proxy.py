@@ -65,17 +65,17 @@ def _peek_registry_proxy() -> str:
     Prefers SOCKS when present (Iranian proxy clients), falls back to https/http.
     """
     try:
-        import winreg as _wr
+        import winreg as _wr  # Windows-only; guarded above.
     except ImportError:
         return ""
 
     try:
-        key = _wr.OpenKey(_wr.HKEY_CURRENT_USER,
+        key = _wr.OpenKey(_wr.HKEY_CURRENT_USER,  # type: ignore[attr-defined]
             r"Software\Microsoft\Windows\CurrentVersion\Internet Settings")
-        enabled, _ = _wr.QueryValueEx(key, "ProxyEnable")
+        enabled, _ = _wr.QueryValueEx(key, "ProxyEnable")  # type: ignore[attr-defined]
         if not enabled:
             return ""
-        server, _ = _wr.QueryValueEx(key, "ProxyServer")
+        server, _ = _wr.QueryValueEx(key, "ProxyServer")  # type: ignore[attr-defined]
     except (OSError, FileNotFoundError):
         return ""
 

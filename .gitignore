@@ -49,3 +49,6 @@ htmlcov/
 .tmp_pytest/
 .tmp_*.py
 .tmp_*.json
+
+# Vendored external tools (downloaded at build time by fetch_vendor.py)
+packaging/windows/vendor/
