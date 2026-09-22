@@ -34,16 +34,28 @@ jobs:
         run: |
           pyinstaller --noconfirm packaging/windows/SmartDL.spec
 
-      - name: Package zip + checksums
+      - name: Fetch vendor tools (ffmpeg / node / aria2)
+        run: python packaging/windows/fetch_vendor.py --clean
+
+      - name: Build onefile exe (fully self-contained)
+        run: |
+          pyinstaller --noconfirm packaging/windows/SmartDL-onefile.spec
+
+      - name: Package zip + onefile + checksums
         shell: pwsh
         run: |
+          $ErrorActionPreference = "Stop"
           $ver = (Select-String -Path pyproject.toml -Pattern '^version = "(.+)"').Matches[0].Groups[1].Value
           $base = "SmartDL-v$ver-win-x64"
+          # onedir bundle
           $stage = Join-Path $env:RUNNER_TEMP $base
           Copy-Item -Recurse dist/SmartDL $stage
           $zip = "$base.zip"
           Compress-Archive -Path $stage -DestinationPath $zip -Force
-          python -c "from pathlib import Path; from smart_dl.core.packaging_utils import write_checksums; write_checksums([Path(r'$zip')], Path('SHA256SUMS.txt'))"
+          # onefile exe (self-contained single binary)
+          Copy-Item "dist/SmartDL.exe" "$base-onefile.exe"
+          # checksums for both release assets
+          python -c "from pathlib import Path; from smart_dl.core.packaging_utils import write_checksums; write_checksums([Path(r'$zip'), Path(r'$base-onefile.exe')], Path('SHA256SUMS.txt'))"
           Get-Content SHA256SUMS.txt
 
       - name: Upload build artifact
@@ -52,6 +64,7 @@ jobs:
           name: smartdl-windows
           path: |
             SmartDL-v*-win-x64.zip
+            SmartDL-v*-win-x64-onefile.exe
             SHA256SUMS.txt
 
       - name: Attach to GitHub Release
@@ -63,5 +76,5 @@ jobs:
           $tag = "${{ github.event.release.tag_name }}"
           if (-not $tag) { $tag = "${{ inputs.tag }}" }
           if (-not $tag) { Write-Host "No tag; skipping upload"; exit 0 }
-          $files = Get-ChildItem SmartDL-v*-win-x64.zip, SHA256SUMS.txt
+          $files = Get-ChildItem SmartDL-v*-win-x64.zip, SmartDL-v*-win-x64-onefile.exe, SHA256SUMS.txt
           gh release upload $tag @($files.FullName) --clobber

@@ -3,9 +3,11 @@
 All notable changes to SmartDL are documented here.
 Format follows [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
-## [Unreleased]
+## [3.19.0] - 2026-09-22
 
 ### Added
+- **Fully self-contained Windows onefile EXE**: `SmartDL-v*-win-x64-onefile.exe` embeds the Python runtime, yt-dlp, all modules **and the external tools** (ffmpeg, Node.js, aria2c) so it runs on a machine with nothing pre-installed. Bundled tools are resolved via a `PATH` shim in `packaging/windows/entry.py`; `fetch_vendor.py` downloads them at build time.
+- `smart_dl.commands` package: subscriptions / queue / history / diagnose / smart-mode handlers extracted from `cli.py`
 - Night download scheduler (R5): `--schedule add|list|clear|remove|start`
 - Automation helper (R6): `--subs-check` for Task Scheduler / cron
 - aria2 JSON-RPC optional mode (R11): `--aria2-rpc URL...` via config `aria2_rpc_url`
@@ -19,7 +21,6 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 - CI quality gates: `mypy smart_dl` and pytest coverage (`fail_under=35`) now run on every push/PR
 - `pytest-cov` added to the `dev` extra
 - Extractor routing registry (`smart_dl.extractors.registry`) + shared CLI/queue dispatch module
-- `smart_dl.commands` package: subscriptions / queue / history / diagnose / smart-mode handlers extracted from `cli.py`
 - `--limit-rate 500K|2M` (yt-dlp `ratelimit`) for fair use on shared links
 - README capability matrix (native / partial / yt-dlp passthrough)
 - Subscription auto-download honors per-subscription `auto_download` flag (in addition to `SMARTDL_SUBS_AUTODL=1`)
@@ -33,6 +34,8 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 - ROADMAP marks cookies.txt / partial FA i18n / partial channel autodownload as done-or-partial
 
 ### Fixed
+- Frozen-correctness: `installer.build_relaunch_argv` no longer emits `python -m smart_dl` under PyInstaller (the onefile exe has no `smart_dl` module path); relaunch uses the bare executable
+- `--update-ytdlp` under a frozen build now explains that yt-dlp is bundled and cannot be pip-updated, and points users to a new release instead of failing
 - History cleanup safety: `cleanup_downloads` now queries production status `completed` via `HistoryStatus` instead of the non-existent synonym `success`, so files that were re-downloaded successfully are not deleted
 - Cleanup removed dead code after `return`; success message now prints when files are removed
 - History status vocabulary centralized in `HistoryStatus` (`completed` / `failed`); recorder, stats, and manager use the same values

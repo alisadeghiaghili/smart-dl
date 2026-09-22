@@ -1,4 +1,4 @@
-# SmartDL v3.18.0
+# SmartDL v3.19.0
 
 > **bad connection? hold my retry loop.**
 
@@ -97,9 +97,12 @@ pip install smart-dl
 
 ### Option 2: Windows portable EXE (no Python install)
 
-Download `SmartDL-v*-win-x64.zip` from the [Releases](https://github.com/alisadeghiaghili/smart-dl/releases) page, verify `SHA256SUMS.txt`, extract, and run `SmartDL.exe`.
+Two formats are published on the [Releases](https://github.com/alisadeghiaghili/smart-dl/releases) page — verify either with `SHA256SUMS.txt`:
 
-**If Windows SmartScreen appears:** the EXE is not code-signed. Choose **More info → Run anyway**, or install via pip instead. Antivirus false positives on PyInstaller onedir bundles are common; the zip hash on the release page lets you confirm the file you downloaded.
+- **`SmartDL-v*-win-x64.zip` (recommended)** — an onedir bundle: extract, run `SmartDL.exe`. Starts fast and is the friendliest to SmartScreen/antivirus heuristics.
+- **`SmartDL-v*-win-x64-onefile.exe`** — a single fully self-contained EXE: Python runtime, yt-dlp, all modules **and the external tools** (ffmpeg, Node.js, aria2c) are embedded. Just run it — no Python, ffmpeg, or Node install needed. Larger file, slower first start, and more likely to trip AV heuristics than the zip.
+
+**If Windows SmartScreen appears:** the EXE is not code-signed. Choose **More info → Run anyway**, or install via pip instead. Antivirus false positives on PyInstaller bundles are common; the hash on the release page lets you confirm the file you downloaded.
 
 ### Option 3: clone and run
 
