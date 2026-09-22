@@ -49,11 +49,12 @@ FFMPEG_URL = (
 )
 
 # Pinned aria2 Windows build from the official GitHub releases (reproducible,
-# no winget/runner dependency). Layout: <ver>/bin/aria2c.exe + <ver>/lib/*.dll.
+# no winget/runner dependency). Release tag is `release-<ver>`; the 64-bit
+# asset is `aria2-<ver>-win-64bit-build1.zip`.
 ARIA2_VERSION = "1.37.0"
 ARIA2_URL = (
     f"https://github.com/aria2/aria2/releases/download/"
-    f"aria2-{ARIA2_VERSION}/aria2-{ARIA2_VERSION}-win-64bit-build1.zip"
+    f"release-{ARIA2_VERSION}/aria2-{ARIA2_VERSION}-win-64bit-build1.zip"
 )
 
 VENDOR_DIR = Path(__file__).resolve().parent / "vendor"
@@ -130,22 +131,19 @@ def fetch_aria2(dest: Path) -> None:
         zpath = tmp_path / "aria2.zip"
         _download(ARIA2_URL, zpath)
         with zipfile.ZipFile(zpath) as z:
-            bin_names = [n for n in z.namelist() if n.endswith("aria2c.exe")]
+            names = z.namelist()
+            bin_names = [n for n in names if n.endswith("aria2c.exe")]
             if not bin_names:
                 raise RuntimeError("aria2c.exe not found in aria2 archive")
-            bin_dir = Path(bin_names[0]).parent
-            for n in bin_names:
+            # aria2c.exe needs its runtime DLLs (libssl/libcrypto/...) next to it.
+            # Copy the exe plus every DLL in the archive, regardless of how the
+            # release lays them out (bin/, lib/, or flat), so this stays robust.
+            dll_names = [n for n in names if n.lower().endswith(".dll")]
+            for n in list(bin_names) + dll_names:
                 z.extract(n, tmp_path)
-            # aria2c.exe needs its DLLs (libssl/libcrypto/libcrypto, etc.)
-            # from <ver>/lib/ shipped alongside it.
-            for n in z.namelist():
-                if n.startswith(bin_dir.as_posix() + "/lib/"):
-                    z.extract(n, tmp_path)
         shutil.copy2(tmp_path / bin_names[0], exe)
-        lib_dir = tmp_path / bin_dir / "lib"
-        if lib_dir.is_dir():
-            for dll in lib_dir.glob("*.dll"):
-                shutil.copy2(dll, dest / dll.name)
+        for dll in tmp_path.rglob("*.dll"):
+            shutil.copy2(dll, dest / dll.name)
     _validate("aria2", exe, flag="--version")
 
 
