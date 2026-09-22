@@ -34,6 +34,8 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 - ROADMAP marks cookies.txt / partial FA i18n / partial channel autodownload as done-or-partial
 
 ### Fixed
+- CI type gate: pinned the `dev` extra to `mypy>=1.0,<2` so the mypy check is deterministic at the major version the code was developed against. mypy 2.x added stricter error codes (`import-untyped`, `no-any-return`, platform-gated `winreg` stubs) that broke the gate on Linux/older-Python runners
+- mypy cleanups for the new gate: `str()` cast in `get_yt_dlp_version` (no-any-return) and `# type: ignore[attr-defined]` on the platform-guarded `winreg` reads in `lang` and `core.proxy`
 - Frozen-correctness: `installer.build_relaunch_argv` no longer emits `python -m smart_dl` under PyInstaller (the onefile exe has no `smart_dl` module path); relaunch uses the bare executable
 - `--update-ytdlp` under a frozen build now explains that yt-dlp is bundled and cannot be pip-updated, and points users to a new release instead of failing
 - History cleanup safety: `cleanup_downloads` now queries production status `completed` via `HistoryStatus` instead of the non-existent synonym `success`, so files that were re-downloaded successfully are not deleted
