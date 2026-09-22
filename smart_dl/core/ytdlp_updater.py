@@ -67,7 +67,7 @@ def get_yt_dlp_version() -> str:
         if ver is not None and hasattr(ver, "__version__"):
             return str(ver.__version__)
         if ver is not None and isinstance(ver, str):
-            return ver
+            return str(ver)
         return str(getattr(yt_dlp, "__version__", "unknown"))
     except Exception:
         return "unknown"
