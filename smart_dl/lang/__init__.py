@@ -26,10 +26,10 @@ def _detect_lang() -> str:
             return "en"
     # Check Windows UI language
     try:
-        import winreg
-        key = winreg.OpenKey(winreg.HKEY_CURRENT_USER,
+        import winreg  # Windows-only; guarded so it is a no-op elsewhere.
+        key = winreg.OpenKey(winreg.HKEY_CURRENT_USER,  # type: ignore[attr-defined]
             r"Control Panel\International")
-        lang, _ = winreg.QueryValueEx(key, "LocaleName")
+        lang, _ = winreg.QueryValueEx(key, "LocaleName")  # type: ignore[attr-defined]
         if lang and lang.startswith("fa"):
             return "fa"
     except Exception:
